@@ -30,9 +30,9 @@ demo: stop
 # Fallback only: a dead mic or a room too loud to present in. Replays the seed
 # transcript at real speed. Never runs unless it is asked for by name.
 replay: stop
-	@echo "REDLINE — REPLAY MODE (seed transcript, no microphone)"
+	@echo "REDLINE — replay available in the UI. Nothing plays until you press Start."
 	@test -d frontend/node_modules || (cd frontend && npm install)
-	@REDLINE_REPLAY=1 $(PY) -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 & \
+	@$(PY) -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 & \
 	 (cd frontend && npm run dev >/dev/null 2>&1) & \
 	 sleep 6; open "http://localhost:5173/?replay=1"; wait
 

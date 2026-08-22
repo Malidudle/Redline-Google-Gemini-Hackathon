@@ -152,15 +152,13 @@ export default function App () {
     })
   }, [clearTimers, resetSession, upsert, applyRedaction])
 
-  useEffect(() => {
-    if (!FIXTURE) return undefined
-    const t = setTimeout(runFixture, 700)
-    return () => { clearTimeout(t); clearTimers() }
-  }, [runFixture, clearTimers])
-
   useEffect(() => clearTimers, [clearTimers])
 
   // ---- actions ------------------------------------------------------------
+
+  const micHint = running
+    ? 'Speak normally. A segment closes after a short pause.'
+    : 'Press start, then speak into the microphone.'
 
   const onStart = () => {
     if (FIXTURE) { runFixture(); return }
@@ -297,17 +295,18 @@ export default function App () {
         {segments.length === 0 ? (
           <div className="empty">
             <div className="ebox">
-              <div className="ek">{FIXTURE ? 'Demonstration starting' : 'No session recorded'}</div>
+              <div className="ek">Ready to record</div>
               <p className="ep">
                 The internal minute and the FOI release are built side by side on this
                 machine. Nothing leaves it.
               </p>
-              {!FIXTURE && conn !== 'open'
+              {conn !== 'open' && !FIXTURE
                 ? <p className="ep quiet">Recorder not reachable at {WS_URL}.</p>
                 : null}
-              {!FIXTURE
-                ? <a className="btn" href="?fixture=1">Run the offline demonstration</a>
-                : null}
+              <button className="btn" onClick={onStart} disabled={running}>
+                {running ? 'Listening…' : 'Start recording'}
+              </button>
+              <p className="ep quiet mic">{micHint}</p>
             </div>
           </div>
         ) : (

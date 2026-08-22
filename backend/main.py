@@ -91,7 +91,6 @@ class SessionState:
 SESSION: Optional[SessionState] = None
 TRANSCRIBER: Optional[Transcriber] = None
 _CONSUMER_TASK: Optional[asyncio.Future] = None
-_auto_replay_armed = bool(os.environ.get("REDLINE_REPLAY"))
 
 
 def _spans_from_wire(raw: list) -> list[RedactionSpan]:
@@ -426,8 +425,6 @@ async def lifespan(_app: FastAPI):
     log("boot", f"egress hook installed: {egress.is_installed()}")
     asyncio.create_task(warm_whisper())
     asyncio.create_task(warm_ollama())
-    if _auto_replay_armed:
-        log("boot", "REDLINE_REPLAY set: replay starts when the first client connects")
     yield
     await stop_session()
 
@@ -598,7 +595,6 @@ async def handle_override(payload: dict) -> None:
 
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket) -> None:
-    global _auto_replay_armed
     await ws.accept()
     q = subscribe()
 
@@ -609,10 +605,6 @@ async def websocket_endpoint(ws: WebSocket) -> None:
 
     pump_task = asyncio.create_task(pump())
     log("ws", "client connected")
-
-    if _auto_replay_armed and SESSION is None:
-        _auto_replay_armed = False
-        await start_session({"title": "REDLINE demo replay", "source": "replay"})
 
     try:
         while True:
@@ -644,8 +636,6 @@ def main(argv: Optional[list[str]] = None) -> None:
     parser.add_argument("--port", type=int, default=8000)
     args = parser.parse_args(argv)
 
-    if args.replay:
-        os.environ["REDLINE_REPLAY"] = "1"
     if args.speed:
         os.environ["REDLINE_REPLAY_SPEED"] = str(args.speed)
 
