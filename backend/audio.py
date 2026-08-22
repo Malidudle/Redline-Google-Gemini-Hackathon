@@ -24,7 +24,14 @@ BLOCK_MS = 100
 BLOCK_SAMPLES = SAMPLE_RATE * BLOCK_MS // 1000
 
 INTERIM_EVERY_S = 1.0
-SILENCE_HANGOVER_MS = 600
+# Read a long identifier aloud — "four eight five ... two nine one" — and the gaps
+# between digit groups run well past half a second. At 600ms every group became its
+# own segment, so the NHS number never reached the rules layer as ten consecutive
+# digits. A segment still short of MIN_SEGMENT_S must wait for a much longer pause
+# before it is allowed to close, which keeps a spoken sentence in one piece.
+SILENCE_HANGOVER_MS = 1300
+SHORT_SEGMENT_HANGOVER_MS = 2600
+MIN_SEGMENT_S = 3.5
 MAX_UTTERANCE_S = 15.0
 MIN_UTTERANCE_S = 0.45
 PREROLL_BLOCKS = 3
@@ -57,12 +64,16 @@ class AudioCapture:
         sample_rate: int = SAMPLE_RATE,
         interim_every: float = INTERIM_EVERY_S,
         silence_hangover_ms: int = SILENCE_HANGOVER_MS,
+        short_segment_hangover_ms: int = SHORT_SEGMENT_HANGOVER_MS,
+        min_segment_s: float = MIN_SEGMENT_S,
         max_utterance_s: float = MAX_UTTERANCE_S,
     ) -> None:
         self.device = device
         self.sample_rate = sample_rate
         self.interim_every = interim_every
         self.hangover_blocks = max(1, silence_hangover_ms // BLOCK_MS)
+        self.short_hangover_blocks = max(1, short_segment_hangover_ms // BLOCK_MS)
+        self.min_segment_s = min_segment_s
         self.max_utterance_s = max_utterance_s
 
         self._stream = None
@@ -204,7 +215,9 @@ class AudioCapture:
         self._silence_run = 0 if speech else self._silence_run + 1
 
         duration = self._buffered_samples() / self.sample_rate
-        boundary = self._silence_run >= self.hangover_blocks
+        needed = (self.short_hangover_blocks if duration < self.min_segment_s
+                  else self.hangover_blocks)
+        boundary = self._silence_run >= needed
         capped = duration >= self.max_utterance_s
 
         if boundary or capped:
