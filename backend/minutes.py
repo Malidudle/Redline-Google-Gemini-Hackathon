@@ -221,6 +221,37 @@ def _normalise(result: dict) -> dict:
     return out
 
 
+
+_INTRO_PATTERNS = ("i'm {n}", "i am {n}", "it's {n}", "this is {n}", "my name is {n}",
+                   "{n} speaking", "{n} here")
+
+
+def _people_who_spoke(candidates: list[str], segments: list[Segment]) -> list[str]:
+    """Drop attendees who were only talked about.
+
+    The model keeps listing a person who is mentioned as if they were present. An
+    attendee must be a speaker label, or must introduce themselves somewhere in
+    the transcript. If that would leave nobody, keep the model's list rather than
+    show an empty panel.
+    """
+    labels = {str(seg.speaker or "").strip().casefold() for seg in segments}
+    text = " ".join(seg.text or "" for seg in segments).casefold()
+    kept = []
+    for name in candidates:
+        n = name.strip().casefold()
+        if not n:
+            continue
+        if n in labels or any(p.format(n=n) in text for p in _INTRO_PATTERNS):
+            kept.append(name)
+        else:
+            # A title is often dropped in the introduction: "it's Sarah" for "Dr Sarah Whitfield".
+            bare = n.split()[-1] if n.split() else n
+            first = n.split()[1] if len(n.split()) > 2 else (n.split()[0] if n.split() else n)
+            if any(p.format(n=w) in text for w in {bare, first} for p in _INTRO_PATTERNS):
+                kept.append(name)
+    return kept or candidates
+
+
 async def generate_minutes(segments: list[Segment]) -> dict:
     """Extract attendees, decisions, actions, and unresolved items via Ollama.
 
@@ -243,6 +274,7 @@ async def generate_minutes(segments: list[Segment]) -> dict:
             prompt = _PROMPT_TEMPLATE.format(transcript=transcript)
             raw = await loop.run_in_executor(None, _call_ollama_sync, model, prompt)
             result = _normalise(raw)
+            result["attendees"] = _people_who_spoke(result["attendees"], segments)
             result["model"] = model
     except Exception as exc:
         result = _empty_minutes()
