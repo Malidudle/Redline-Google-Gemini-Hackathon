@@ -1,0 +1,20 @@
+{
+  "type": "object",
+  "properties": {
+    "redactions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "text":      {"type": "string"},
+          "exemption": {"type": "string",
+                        "enum": ["s.40(2)","s.41","s.43(2)","s.36",
+                                 "s.38","s.31","s.42","s.35"]},
+          "reason":    {"type": "string"}
+        },
+        "required": ["text","exemption"]
+      }
+    }
+  },
+  "required": ["redactions"]
+}
