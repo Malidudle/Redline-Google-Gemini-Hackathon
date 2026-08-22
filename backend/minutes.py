@@ -36,6 +36,8 @@ _PLACEHOLDERS = {"", "none", "n/a", "na", "null", "unknown", "unspecified",
 _MINUTES_SCHEMA = {
     "type": "object",
     "properties": {
+        "summary": {"type": "string"},
+        "topics": {"type": "array", "items": {"type": "string"}},
         "attendees": {"type": "array", "items": {"type": "string"}},
         "decisions": {
             "type": "array",
@@ -62,18 +64,20 @@ _MINUTES_SCHEMA = {
         },
         "unresolved": {"type": "array", "items": {"type": "string"}},
     },
-    "required": ["attendees", "decisions", "actions", "unresolved"],
+    "required": ["summary", "topics", "attendees", "decisions", "actions", "unresolved"],
 }
 
-_PROMPT_TEMPLATE = """You are taking minutes for a UK public body meeting. Read the transcript below and extract exactly what was said. Do not invent names, decisions, or dates that are not present in the transcript.
+_PROMPT_TEMPLATE = """You are the minute-taker for a UK public body. Below is a verbatim transcript produced by speech recognition, so expect odd punctuation and the occasional misheard word. It may be a formal meeting, a briefing, a one-person update, or a presentation. Minute whatever it actually is. Never invent names, decisions, dates or figures that are not in the transcript.
 
 Return:
-- attendees: every speaker who is named or addressed by name in the transcript.
-- decisions: each concrete decision made, with its text and who decided it.
-- actions: each follow-up task somebody took on or was given. A speaker saying "I'll do X", "we'll do X", or "X needs doing before Y" is an action. The owner is the speaker who committed to it, or the person it was given to. Give a due date only if one was stated.
-- unresolved: any question, item, or concern raised but not settled by the end of the meeting.
+- summary: 2-4 plain sentences saying what this recording was about and what happened in it. Always write this, even if nothing else applies. Write it for someone who was not there.
+- topics: the 2-6 subjects that were actually discussed, as short noun phrases.
+- attendees: the people who SPOKE. Use the speaker labels on the left of each line. If a speaker introduces themselves ("I'm Malin", "this is Dr Okafor speaking") use that name. A person who is only talked ABOUT is not an attendee — put them in the summary or a decision instead. If every line is labelled "Speaker" and nobody gives a name, return ["Speaker"].
+- decisions: each thing that was settled. A chair's ruling about process counts ("we'll take that in closed session", "keep that out of anything public"). Say who decided it if the transcript shows.
+- actions: follow-up tasks that a PARTICIPANT took on or was given: "I'll send X", "we'll do Y", "can you chase Z". The owner is that participant. Guidance or rules quoted from outside bodies are NOT actions. Give a due date only if one was stated.
+- unresolved: questions or concerns raised but not settled by the end.
 
-If a field has no entries, return an empty list for it. Do not fabricate content.
+If a list has no entries return an empty list, but the summary is never empty.
 
 TRANSCRIPT:
 {transcript}
@@ -82,7 +86,8 @@ TRANSCRIPT:
 
 def _empty_minutes() -> dict[str, list]:
     """A fresh dict of empty lists — never a shared instance callers could mutate."""
-    return {"attendees": [], "decisions": [], "actions": [], "unresolved": []}
+    return {"summary": "", "topics": [], "attendees": [], "decisions": [],
+            "actions": [], "unresolved": []}
 
 
 def _env_facts() -> dict[str, Any]:

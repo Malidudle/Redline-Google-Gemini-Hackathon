@@ -103,7 +103,9 @@ export default function MinutesPanel ({
   const actions = entries(data.actions)
   const unresolved = entries(data.unresolved)
   const error = String(data.error || '')
-  const empty = !error && !attendees.length && !decisions.length &&
+  const summary = String(data.summary || '').trim()
+  const topics = names(data.topics)
+  const empty = !error && !summary && !attendees.length && !decisions.length &&
     !actions.length && !unresolved.length
   const usedModel = String(data.model || modelTag || '')
 
@@ -146,6 +148,15 @@ export default function MinutesPanel ({
 
           {!pending && !error && !empty ? (
             <>
+              {summary ? (
+                <Section label="Summary">
+                  <p className="mn-body-txt mn-summary">{summary}</p>
+                  {topics.length
+                    ? <p className="mn-topics">{topics.join(' · ')}</p>
+                    : null}
+                </Section>
+              ) : null}
+
               <Section label="Attendees" count={attendees.length}>
                 {attendees.length
                   ? (
