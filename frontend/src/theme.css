@@ -1,0 +1,590 @@
+:root {
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Segoe UI", Roboto, system-ui, sans-serif;
+
+  --ink: #0B0C0D;
+  --chrome: #121517;
+  --chrome-2: #1A1E21;
+  --rule-dark: #2C3237;
+  --dim: #8B9599;
+  --light: #E9ECEC;
+
+  --paper: #F0F1F1;
+  --paper-r: #E5E8E8;
+  --rule: #C4CACA;
+  --rule-faint: #D6DBDB;
+  --text: #131719;
+  --muted: #667075;
+
+  --bar: #08090A;
+  --red: #DC2626;
+  --ok: #22C55E;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--ink);
+  color: var(--text);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+button { font-family: inherit; cursor: pointer; }
+input { font-family: inherit; }
+
+.app {
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+/* ---------------- header ---------------- */
+
+.hdr > * { min-width: 0; }
+
+.hdr {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  background: var(--chrome);
+  border-bottom: 1px solid var(--rule-dark);
+  color: var(--light);
+}
+
+.brand {
+  padding: 13px 22px 11px;
+  border-right: 1px solid var(--rule-dark);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.brand .wm {
+  font-size: 23px;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1;
+  border-bottom: 2px solid var(--red);
+  padding-bottom: 5px;
+  align-self: flex-start;
+}
+.brand .sub {
+  margin-top: 7px;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  color: var(--dim);
+  text-transform: uppercase;
+}
+
+.sess {
+  padding: 0 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border-right: 1px solid var(--rule-dark);
+  min-width: 0;
+}
+.sess .k { font-size: 9.5px; font-weight: 600; letter-spacing: 0.2em; color: var(--dim); text-transform: uppercase; }
+.sess .v {
+  margin-top: 6px;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.classif {
+  align-self: center;
+  margin: 0 24px;
+  border: 2px solid var(--light);
+  padding: 7px 12px 6px;
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  white-space: nowrap;
+}
+
+.offline {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 20px;
+  border-left: 1px solid var(--rule-dark);
+  color: var(--dim);
+}
+.offline .lbl { font-size: 9.5px; font-weight: 700; letter-spacing: 0.18em; line-height: 1.35; }
+
+.egress {
+  padding: 10px 24px 10px 22px;
+  border-left: 1px solid var(--rule-dark);
+  background: #0A0C0D;
+  text-align: right;
+  min-width: 268px;
+  flex: 0 1 auto;
+}
+.egress .k {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: var(--dim);
+  text-transform: uppercase;
+}
+.egress .v {
+  margin-top: 3px;
+  font-family: var(--mono);
+  font-size: 36px;
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: #FFFFFF;
+}
+.egress.hot .v { color: #FF5A4D; }
+.egress .note {
+  margin-top: 3px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: flex-end;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: var(--ok);
+}
+.egress.hot .note { color: #FF5A4D; }
+.dot { width: 7px; height: 7px; background: currentColor; display: inline-block; }
+
+/* ---------------- controls ---------------- */
+
+.ctrl {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 22px;
+  background: var(--chrome-2);
+  border-bottom: 1px solid var(--rule-dark);
+}
+.ctrl .lbl {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: var(--dim);
+  text-transform: uppercase;
+}
+.ctrl input.title {
+  background: #0A0C0D;
+  border: 1px solid var(--rule-dark);
+  color: var(--light);
+  font-size: 13px;
+  padding: 8px 11px;
+  flex: 1 1 200px;
+  min-width: 0;
+  max-width: 340px;
+}
+.ctrl input.title:focus { outline: none; border-color: var(--dim); }
+
+.seg { display: flex; border: 1px solid var(--rule-dark); }
+.seg button {
+  background: transparent;
+  border: 0;
+  color: var(--dim);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding: 8px 15px;
+}
+.seg button + button { border-left: 1px solid var(--rule-dark); }
+.seg button.on { background: var(--light); color: var(--ink); }
+
+.btn {
+  border: 1px solid transparent;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding: 9px 16px;
+  background: #39424A;
+  color: var(--light);
+}
+.btn:hover { background: #47525B; }
+.btn.ghost { background: transparent; border-color: var(--rule-dark); color: var(--dim); }
+.btn.ghost:hover { color: var(--light); border-color: var(--dim); }
+.btn.primary { background: var(--light); color: var(--ink); margin-left: auto; }
+.btn.primary:hover { background: #FFFFFF; }
+.btn:disabled { opacity: 0.38; cursor: default; }
+
+.conn { display: flex; align-items: center; gap: 7px; font-size: 9.5px; font-weight: 700; letter-spacing: 0.16em; color: var(--dim); }
+.conn .dot { width: 8px; height: 8px; }
+.conn.open { color: var(--ok); }
+.conn.closed { color: #FF5A4D; }
+.conn.connecting { color: #EAB308; }
+.conn.fixture { color: #60A5FA; }
+
+/* ---------------- pane headers ---------------- */
+
+.split-bg {
+  background:
+    linear-gradient(to right,
+      var(--paper) 0 calc(50% - 0.5px),
+      var(--rule) calc(50% - 0.5px) calc(50% + 0.5px),
+      var(--paper-r) calc(50% + 0.5px) 100%);
+}
+
+.panehead {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  background: var(--ink);
+}
+.ph {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  color: #F2F3F3;
+}
+.ph + .ph { border-left: 1px solid #33393D; }
+.ph h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+.ph .tally {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: #99A2A6;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------------- transcript grid ---------------- */
+
+.scroll { overflow-y: auto; overflow-x: hidden; }
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  min-height: 100%;
+  align-content: start;
+}
+
+.cell {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  padding-left: 18px;
+  border-bottom: 1px solid var(--rule-faint);
+}
+.cell.r { border-left: 1px solid var(--rule); }
+
+.gut {
+  border-right: 1px solid var(--rule);
+  padding: 17px 12px 19px 0;
+  text-align: right;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  color: #9AA3A7;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  user-select: none;
+}
+
+.body { padding: 16px 28px 18px 18px; min-width: 0; }
+
+.meta {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 7px;
+}
+.meta .spk {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.19em;
+  text-transform: uppercase;
+  color: #2A3134;
+}
+.meta .tc {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+.meta .tag {
+  margin-left: auto;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.17em;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.meta .tag.scanning { color: #B45309; animation: pulse 1.05s ease-in-out infinite; }
+
+@keyframes pulse { 0%, 100% { opacity: 1 } 50% { opacity: 0.28 } }
+
+.utt {
+  font-family: var(--mono);
+  font-size: 17px;
+  line-height: 1.64;
+  letter-spacing: -0.005em;
+  color: var(--text);
+  word-break: break-word;
+}
+.utt.interim { opacity: 0.4; }
+.utt .caret { animation: blink 1s steps(1, end) infinite; }
+@keyframes blink { 0%, 49% { opacity: 1 } 50%, 100% { opacity: 0 } }
+
+.fill { min-height: 56px; }
+.fill.r { border-left: 1px solid var(--rule); }
+
+/* ---------------- redaction ---------------- */
+
+.rx { position: relative; }
+
+.tok {
+  position: relative;
+  display: inline-block;
+  cursor: pointer;
+}
+
+/* Withheld text stays in the DOM because releasing a redaction has to restore it,
+   but a drag-select across the release pane must not lift it out. Releasing the
+   span makes it selectable again, which is exactly the disclosure decision. */
+.rx .tok { user-select: none; -webkit-user-select: none; }
+.rx.open .tok { user-select: auto; -webkit-user-select: auto; }
+
+.bar {
+  position: absolute;
+  top: -0.16em;
+  bottom: -0.12em;
+  background: var(--bar);
+  box-shadow: inset 0 -2px 0 0 var(--exc);
+  transform-origin: left center;
+  animation: wipe 220ms cubic-bezier(0.2, 0.75, 0.15, 1) both;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  pointer-events: none;
+}
+@keyframes wipe { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+.bar .op {
+  font-family: var(--sans);
+  font-size: 7.5px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  color: rgba(255, 255, 255, 0.28);
+  white-space: nowrap;
+  user-select: none;
+}
+/* Generated content keeps the overprint out of textContent, so copying the
+   release pane yields the real transcript rather than statute codes. */
+.bar .op::after { content: attr(data-code); }
+
+/* Revealing a redaction lifts the bars entirely and marks the whole phrase as
+   one continuous highlight, so a wrapped span still reads as a single quotation. */
+.rx.open .bar { display: none; }
+.rx.open {
+  background: var(--exbg);
+  box-shadow: inset 0 -2px 0 0 var(--exc);
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 10px;
+  padding: 2px 8px 2px 0;
+  background: var(--exbg);
+  border-left: 3px solid var(--exc);
+  vertical-align: 2px;
+  white-space: nowrap;
+  cursor: pointer;
+  animation: chipin 200ms ease-out both;
+}
+.chip .code {
+  padding-left: 7px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--exc);
+  font-variant-numeric: tabular-nums;
+}
+.chip .lab {
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--exc);
+}
+@keyframes chipin { from { opacity: 0; transform: translateX(-5px); } to { opacity: 1; transform: none; } }
+
+.unredacted {
+  background: rgba(220, 38, 38, 0.1);
+  box-shadow: inset 0 -2px 0 0 rgba(220, 38, 38, 0.6);
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  cursor: pointer;
+}
+
+/* ---------------- override popover ---------------- */
+
+.pop {
+  position: fixed;
+  z-index: 60;
+  width: 328px;
+  background: var(--ink);
+  color: var(--light);
+  border: 1px solid #000;
+  border-top: 3px solid var(--exc);
+  padding: 14px 16px 14px;
+}
+.pop .ptitle {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.19em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+.pop .surface {
+  margin: 10px 0 10px;
+  font-family: var(--mono);
+  font-size: 14px;
+  line-height: 1.45;
+  color: #FFFFFF;
+  border-left: 3px solid var(--exc);
+  padding-left: 10px;
+  word-break: break-word;
+}
+.pop .law {
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: #A9B2B6;
+  margin-bottom: 13px;
+}
+.pop .law b { color: var(--exc); font-family: var(--mono); }
+.pop .acts { display: flex; gap: 8px; }
+.pop .acts .btn { flex: 1; padding: 9px 8px; letter-spacing: 0.1em; }
+
+.scrim { position: fixed; inset: 0; z-index: 55; }
+
+/* ---------------- footer ---------------- */
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 7px 22px;
+  background: var(--chrome);
+  border-top: 1px solid var(--rule-dark);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+.status b { color: var(--light); font-weight: 600; }
+.status .right { margin-left: auto; color: #6E797E; }
+
+@media (max-width: 1280px) {
+  .utt { font-size: 16px; }
+  .egress .v { font-size: 30px; }
+  .egress { min-width: 232px; }
+  .body { padding-right: 18px; }
+}
+
+/* ---------------- empty state ---------------- */
+
+.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  padding: 40px 24px;
+}
+.ebox {
+  max-width: 520px;
+  text-align: center;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  padding: 30px 34px 32px;
+}
+.ek {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #2A3134;
+}
+.ep {
+  margin: 14px 0 0;
+  font-size: 13.5px;
+  line-height: 1.62;
+  color: var(--muted);
+}
+.ep.quiet { font-family: var(--mono); font-size: 11.5px; color: #8A9296; }
+.ebox .btn {
+  margin-top: 22px;
+  display: inline-block;
+  background: var(--ink);
+  color: var(--light);
+  text-decoration: none;
+}
+.ebox .btn:hover { background: #262C31; }
+
+
+/* ---------------- responsive ----------------
+   The header used to need 1205px of rigid cells. Below that the grid overflowed
+   horizontally and pushed the FOI RELEASE pane off-screen, which is the one thing
+   the page exists to show. Both panes now stay visible at any width and any zoom. */
+
+.ctrl { flex-wrap: wrap; }
+.sess { flex: 1 1 200px; min-width: 0; }
+.brand, .classif, .offline, .egress { flex: 0 0 auto; }
+
+@media (max-width: 1400px) {
+  .egress { min-width: 200px; padding: 10px 18px; }
+  .egress .v { font-size: 28px; }
+  .brand { padding: 11px 16px 9px; }
+  .sess { padding-left: 16px; padding-right: 16px; }
+}
+
+@media (max-width: 1180px) {
+  .panehead h2 { white-space: nowrap; }
+  .panehead .tally { font-size: 8.5px; letter-spacing: 0.08em; text-align: right; }
+  .offline { padding: 0 12px; }
+  .offline .lbl { display: none; }
+  .classif { padding: 0 12px; }
+  .egress { min-width: 150px; padding: 8px 14px; }
+  .egress .v { font-size: 22px; }
+  .brand .tag { display: none; }
+  .body { padding: 13px 18px 15px 14px; }
+}
+
+@media (max-width: 980px) {
+  .panehead h2 { font-size: 13px; }
+  .panehead .tally { font-size: 7.5px; }
+  .classif { display: none; }
+  .egress { min-width: 120px; }
+  .egress .v { font-size: 18px; }
+  .ctrl input.title { flex: 1 1 120px; }
+}

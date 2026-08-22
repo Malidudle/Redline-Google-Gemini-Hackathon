@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+websockets
+sounddevice
+numpy
+httpx
+pydantic
+python-multipart
+pytest
+pytest-asyncio
+jinja2

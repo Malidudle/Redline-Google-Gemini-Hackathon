@@ -1,0 +1,14 @@
+.venv/
+node_modules/
+third_party/
+*.bin
+__pycache__/
+.DS_Store
+*.wav
+!demo/fallback.wav
+.setup_logs/
+.redline_env.json
+exports/
+.pytest_cache/
+frontend/dist/
+.playwright-mcp/
