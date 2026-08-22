@@ -162,6 +162,10 @@ Rules you must obey:
 3. NEVER return text that appears only in the CONTEXT. Context is there to tell you who
    people are, nothing else.
 4. Mark the shortest span that carries the sensitive information.
+4a. BE EXHAUSTIVE. Read the CURRENT SEGMENT from its first word to its last and return
+    EVERY item that qualifies, not just the most obvious one. A segment often carries
+    several — a name, then an identifier, then a supplier, then a value. Missing the
+    first one because you found the second is the most common failure. Count them.
 5. If there is nothing to withhold, return {"redactions": []}.
 6. Return only "text" and "exemption" for each redaction. Do not add a reason.
 7. NEVER withhold these. They are routine meeting furniture, not exempt information:
@@ -211,6 +215,14 @@ SEGMENT: "Her date of birth is the 3rd of March 1974 and it's on the referral fo
 Contrast with the previous example. A date belonging to a PERSON is personal data and
 is withheld. A date belonging to the MEETING is not. Ask whose date it is.
 
+### Example C-asr
+SEGMENT: "So to summarize for the minute, Dr. Sarah Whitfield's referral, NHS number 4001234564 sits alongside the Ardent Systems Award at 2.4 million pounds."
+{"redactions":[{"text":"Dr. Sarah Whitfield","exemption":"s.40(2)"},{"text":"4001234564","exemption":"s.40(2)"},{"text":"Ardent Systems","exemption":"s.43(2)"},{"text":"2.4 million pounds","exemption":"s.43(2)"}]}
+This segment came from speech recognition, so it has odd capitals, no pound sign and
+run-on punctuation. Judge the MEANING, not the formatting. "Ardent Systems Award" is a
+contract awarded TO the supplier Ardent Systems, not the name of a prize — withhold the
+supplier. Identifiers may arrive as digits or as spoken words; both are withheld.
+
 ### Example C-name
 SEGMENT: "Before we start the agenda proper, I want to welcome Dr Sarah Whitfield, our safeguarding lead, who has come in to brief us on one live case."
 {"redactions":[{"text":"Dr Sarah Whitfield","exemption":"s.40(2)"}]}
@@ -226,8 +238,10 @@ the value, never the label. The same goes for "his National Insurance number", "
 sort code" and "her date of birth" when no actual value follows.
 
 ### Example C
-SEGMENT: "His National Insurance number is JT six one nine four two seven C, and the postcode is M14 5TQ."
-{"redactions":[{"text":"JT six one nine four two seven C","exemption":"s.40(2)"},{"text":"M14 5TQ","exemption":"s.40(2)"}]}
+SEGMENT: "His National Insurance number is JT six one nine four two seven C, the postcode is M14 5TQ, and you can reach the caseworker on oh seven nine four one, double two six, three one eight, or at r dot okonjo at manchester dot gov dot uk."
+{"redactions":[{"text":"JT six one nine four two seven C","exemption":"s.40(2)"},{"text":"M14 5TQ","exemption":"s.40(2)"},{"text":"oh seven nine four one, double two six, three one eight","exemption":"s.40(2)"},{"text":"r dot okonjo at manchester dot gov dot uk","exemption":"s.40(2)"}]}
+Contact details are withheld even for a member of staff, and a phone number or email
+address dictated as words is still a phone number or email address.
 
 ### Example 1
 CONTEXT:
