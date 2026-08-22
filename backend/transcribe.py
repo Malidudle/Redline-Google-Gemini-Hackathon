@@ -85,10 +85,20 @@ def write_wav(path: Path, pcm: np.ndarray, sample_rate: int = SAMPLE_RATE) -> No
         wf.writeframes(pcm16.tobytes())
 
 
+DOMAIN_PROMPT = (
+    "UK local authority committee meeting. Housing enforcement, safeguarding, "
+    "procurement and freedom of information. Speakers state names, job titles, "
+    "addresses, postcodes, NHS numbers, National Insurance numbers, supplier "
+    "names and contract values aloud."
+)
+PROMPT_CARRY_CHARS = 220
+
+
 class Transcriber:
     """Thread-confined whisper.cpp. One decode at a time; interims are droppable."""
 
     def __init__(self, env: Optional[dict] = None, backend: Optional[str] = None) -> None:
+        self._last_final = ""
         self.env = load_env_facts() if env is None else env
         self.model_path = resolve_model_path(self.env)
         self.whisper_bin = resolve_whisper_bin(self.env)
@@ -157,11 +167,24 @@ class Transcriber:
             self.backend = "cli" if self.whisper_bin else "none"
         return self._model
 
+    def _prompt(self) -> str:
+        """Domain priming plus the tail of the last final segment.
+
+        Whisper conditions on this, so naming the setting and carrying the previous
+        sentence keeps proper nouns and spoken digit runs consistent across a
+        segment boundary. Measured: "Ltd." became "Limited" for free.
+        """
+        parts = [DOMAIN_PROMPT]
+        if self._last_final:
+            parts.append(self._last_final[-PROMPT_CARRY_CHARS:])
+        return " ".join(parts)
+
     def _decode_pywhispercpp(self, pcm: np.ndarray, greedy: bool) -> str:
         model = self._ensure_model()
         if model is None:
             return self._decode_cli(pcm, greedy)
-        params = {"n_threads": self.threads, "language": "en", "no_timestamps": True}
+        params = {"n_threads": self.threads, "language": "en", "no_timestamps": True,
+                  "initial_prompt": self._prompt()}
         if greedy:
             params["greedy"] = {"best_of": 1}
         try:
@@ -195,6 +218,7 @@ class Transcriber:
                 "-t", str(self.threads),
                 "-nt", "-np",
                 "--no-fallback",
+                "--prompt", self._prompt(),
             ]
             if greedy:
                 cmd += ["-bs", "1", "-bo", "1"]
@@ -248,9 +272,12 @@ class Transcriber:
         if not self.available or pcm.size == 0:
             return "" if final else None
         loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(
+        text = await loop.run_in_executor(
             self._executor, self._decode_guarded, pcm, not final, not final
         )
+        if final and text:
+            self._last_final = text
+        return text
 
     async def warmup(self) -> None:
         """Load the model and run one tiny decode so the first utterance is not cold."""
