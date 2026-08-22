@@ -1,0 +1,220 @@
+/* Minutes panel. Every rule here is scoped to .mn* so theme.css stays untouched.
+   Custom properties come from theme.css :root. */
+
+/* The export button carries margin-left:auto in theme.css, which would strand the
+   minutes button on the left. The auto margin moves to whichever button comes first. */
+.ctrl .btn.mn-go { margin-left: auto; min-width: 168px; }
+.ctrl .btn.mn-go + .btn.primary { margin-left: 0; }
+
+.mn-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: rgba(8, 9, 10, 0.52);
+}
+
+.mn {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 71;
+  width: 560px;
+  max-width: 94vw;
+  display: flex;
+  flex-direction: column;
+  background: var(--paper);
+  border-left: 1px solid #000;
+  color: var(--text);
+}
+
+/* ---------------- panel chrome ---------------- */
+
+.mn-bar {
+  flex: 0 0 auto;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  background: var(--ink);
+  color: #F2F3F3;
+}
+.mn-bar h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+.mn-close {
+  border: 1px solid var(--rule-dark);
+  background: transparent;
+  color: var(--dim);
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 7px 12px;
+}
+.mn-close:hover { color: var(--light); border-color: var(--dim); }
+
+.mn-prov {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 9px 20px;
+  background: var(--paper-r);
+  border-bottom: 1px solid var(--rule);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.mn-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 20px 28px;
+}
+
+/* ---------------- sections ---------------- */
+
+.mn-sec { padding-top: 22px; }
+
+.mn-sechead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid var(--rule);
+}
+.mn-lbl {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #2A3134;
+}
+.mn-count,
+.mn-elapsed {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.mn-att {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.mn-att li {
+  padding: 9px 0;
+  border-bottom: 1px solid var(--rule-faint);
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: var(--text);
+}
+
+.mn-item {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 0 12px;
+  padding: 11px 0 12px;
+  border-bottom: 1px solid var(--rule-faint);
+}
+.mn-n {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.55;
+  color: #9AA3A7;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  user-select: none;
+}
+.mn-txt { min-width: 0; }
+.mn-line {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 13.5px;
+  line-height: 1.55;
+  letter-spacing: -0.005em;
+  color: var(--text);
+  word-break: break-word;
+}
+
+.mn-notes {
+  margin: 7px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+}
+.mn-note { display: inline-flex; align-items: baseline; gap: 7px; }
+.mn-k {
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.mn-v {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.02em;
+  color: #2A3134;
+}
+
+.mn-nil {
+  margin: 0;
+  padding: 11px 0 12px;
+  border-bottom: 1px solid var(--rule-faint);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: #8A9296;
+}
+
+/* ---------------- pending, error, empty ---------------- */
+
+.mn-state { padding-top: 22px; }
+.mn-body-txt {
+  margin: 13px 0 0;
+  font-size: 13px;
+  line-height: 1.62;
+  color: var(--muted);
+}
+.mn-err {
+  margin: 13px 0 0;
+  padding: 10px 12px;
+  background: var(--paper-r);
+  border-left: 3px solid var(--red);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: #2A3134;
+  word-break: break-word;
+}
+
+.mn-foot {
+  margin: 26px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--rule);
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: #8A9296;
+}
+
+@media (max-width: 900px) {
+  .mn { width: 100vw; max-width: 100vw; }
+  .mn-bar h2 { font-size: 13px; letter-spacing: 0.24em; }
+  .ctrl .btn.mn-go { min-width: 0; }
+}

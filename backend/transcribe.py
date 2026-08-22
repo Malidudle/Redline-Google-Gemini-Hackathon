@@ -12,6 +12,7 @@ import asyncio
 import json
 import os
 import subprocess
+import re
 import sys
 import tempfile
 import threading
@@ -92,6 +93,20 @@ DOMAIN_PROMPT = (
     "names and contract values aloud."
 )
 PROMPT_CARRY_CHARS = 220
+
+
+
+_JUNK_TOKENS = re.compile(r"\[(?:BLANK_AUDIO|SILENCE|MUSIC|NOISE|INAUDIBLE)\]|\((?:silence|music|inaudible)\)|^\s*>>\s*", re.I)
+
+
+def clean_transcript(text: str) -> str:
+    """Strip whisper's non-speech markers. A segment that is only markers is empty,
+    and main.py drops empty finals, so [BLANK_AUDIO] never reaches the screen."""
+    if not text:
+        return ""
+    out = _JUNK_TOKENS.sub("", text)
+    out = re.sub(r"\s{2,}", " ", out).strip()
+    return out
 
 
 class Transcriber:
@@ -235,6 +250,11 @@ class Transcriber:
         return " ".join(ln for ln in lines if ln and not ln.startswith("[")).strip()
 
     def _decode(self, pcm: np.ndarray, greedy: bool) -> str:
+        t0 = time.monotonic()
+        text = self._decode_raw(pcm, greedy)
+        return clean_transcript(text)
+
+    def _decode_raw(self, pcm: np.ndarray, greedy: bool) -> str:
         t0 = time.monotonic()
         try:
             if self.backend == "pywhispercpp":

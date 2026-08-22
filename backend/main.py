@@ -91,6 +91,12 @@ class SessionState:
 SESSION: Optional[SessionState] = None
 TRANSCRIBER: Optional[Transcriber] = None
 _CONSUMER_TASK: Optional[asyncio.Future] = None
+_MINUTES_TASK: Optional[asyncio.Task] = None
+
+# stop_session clears SESSION, but minuting a meeting is something you do once it
+# has finished, so the segments of the last session stay reachable.
+LAST_SESSION: Optional[SessionState] = None
+EMPTY_MINUTES = {"attendees": [], "decisions": [], "actions": [], "unresolved": []}
 
 
 def _spans_from_wire(raw: list) -> list[RedactionSpan]:
@@ -402,7 +408,16 @@ async def warm_ollama() -> None:
                 "stream": False,
                 "options": {"num_predict": 1},
             })
-            log("warm", f"ollama {tag} warm in {(time.monotonic() - t0) * 1000:.0f}ms")
+            log("warm", f"ollama {tag} loaded in {(time.monotonic() - t0) * 1000:.0f}ms")
+
+        # Loading the weights is not enough. The redaction prompt carries a ~2000 token
+        # few-shot prefix that Ollama caches, and until that cache is primed the first
+        # real segment pays full prefill and blows the timeout — returning no spans on
+        # the demo's opening utterance. Send the real prompt once, here, at boot.
+        from backend.redact.model import warm as warm_redactor
+        t1 = time.monotonic()
+        await warm_redactor()
+        log("warm", f"redaction prefix primed in {(time.monotonic() - t1) * 1000:.0f}ms")
     except Exception as exc:
         log("warm", f"ollama warm skipped: {exc}")
 
@@ -457,40 +472,66 @@ async def health() -> dict:
 
 
 async def stop_session() -> None:
-    global SESSION
+    global SESSION, LAST_SESSION
     session, SESSION = SESSION, None
     if session is None:
         return
+    LAST_SESSION = session
     session.running = False
     for task in session.tasks:
         task.cancel()
     await asyncio.gather(*session.tasks, return_exceptions=True)
     log("session", f"stopped after {session.segments} segments, "
                    f"{session.redactions} redactions")
-    _start_minutes(session)
+    # Minutes are a deliberate step the user takes after recording, like the export.
+    # Stopping a recording must not fire the 12B model or open a panel on its own.
 
 
-def _start_minutes(session: SessionState) -> None:
-    """Fire the minutes model in the background. Never block the socket on it."""
-    if not session.finals:
+def _minutes_segments() -> list[Segment]:
+    """Final segments to minute: the live session, or the one that just stopped."""
+    session = SESSION if SESSION is not None and SESSION.finals else LAST_SESSION
+    if session is None or not session.finals:
+        return []
+    return sorted(session.finals.values(), key=lambda s: s.t_start)
+
+
+def _publish_minutes_failure(reason: str) -> None:
+    publish("minutes.ready", dict(EMPTY_MINUTES, error=reason[:200]))
+
+
+def _start_minutes(segments: list[Segment], requested: bool = False) -> None:
+    """Fire the minutes model in the background. Never block the socket on it.
+
+    Minutes are the internal record, so Segment.text goes to the model exactly as
+    transcribed. Redaction spans describe the FOI release and are not applied here.
+
+    An empty transcript is only reported back when the client asked for minutes.
+    Stopping a session that recorded nothing is not a failure worth a frame.
+    """
+    global _MINUTES_TASK
+    if not segments:
+        log("minutes", "no session segments to minute")
+        if requested:
+            _publish_minutes_failure("no transcript to summarise")
+        return
+    if _MINUTES_TASK is not None and not _MINUTES_TASK.done():
+        log("minutes", "generation already in flight; ignoring repeat request")
         return
 
+    publish("minutes.pending", {"segments": len(segments)})
+
     async def run() -> None:
-        try:
-            from backend.minutes import generate_minutes
-        except Exception as exc:
-            log("minutes", f"minutes module unavailable ({exc})")
-            return
-        segments = sorted(session.finals.values(), key=lambda s: s.t_start)
         t0 = time.monotonic()
         try:
+            from backend.minutes import generate_minutes
             await generate_minutes(segments)
             log("latency", f"minutes {len(segments)} segments in "
                            f"{(time.monotonic() - t0) * 1000:.0f}ms")
         except Exception as exc:
             log("minutes", f"minutes failed: {exc}")
+            _publish_minutes_failure(f"{type(exc).__name__}: {exc}")
 
-    asyncio.create_task(run())
+    _MINUTES_TASK = asyncio.create_task(run())
 
 
 async def start_session(payload: dict) -> SessionState:
@@ -527,6 +568,8 @@ async def _handle_client_message(msg: dict) -> None:
         await stop_session()
     elif msg_type == "export.request":
         await handle_export(payload)
+    elif msg_type == "minutes.request":
+        await handle_minutes(payload)
     elif msg_type == "redaction.override":
         await handle_override(payload)
     else:
@@ -535,7 +578,9 @@ async def _handle_client_message(msg: dict) -> None:
 
 async def handle_export(payload: dict) -> None:
     """Render the FOI-releasable HTML from the segments this session published."""
-    session = SESSION
+    # Record, stop, then export is the natural FOI workflow, so the export must
+    # survive session.stop the same way the minutes do.
+    session = SESSION if SESSION is not None and SESSION.finals else LAST_SESSION
     if session is None or not session.finals:
         log("export", "no session segments to export")
         return
@@ -551,12 +596,17 @@ async def handle_export(payload: dict) -> None:
         html = await loop.run_in_executor(
             None, build_export, segments, session.title, session.classification)
         path = await loop.run_in_executor(
-            None, write_and_open_export, html, session.title, False)
+            None, write_and_open_export, html, session.title, True)
         log("latency", f"export {len(segments)} segments in "
                        f"{(time.monotonic() - t0) * 1000:.0f}ms -> {path}")
         publish("export.ready", {"path": str(path)})
     except Exception as exc:
         log("export", f"export failed: {exc}")
+
+
+async def handle_minutes(_payload: dict) -> None:
+    """Minute the internal record. Never blocks the socket; the model runs detached."""
+    _start_minutes(_minutes_segments(), requested=True)
 
 
 async def handle_override(payload: dict) -> None:

@@ -49,13 +49,14 @@ def _format_timestamp(seconds: float) -> str:
     return f"{m:02d}:{s:02d}"
 
 
-def _bar_width_ch(surface: str) -> float:
+def _bar_width_ch(char_count: int) -> float:
     """Width, in ch units, of the black bar that stands in for a redacted span.
 
-    A longer redacted phrase gets a longer bar. This mirrors real FOI
-    disclosures, where the redaction preserves the shape of what was removed.
+    Measured from the characters actually blacked out rather than from
+    RedactionSpan.surface, so a stale or mis-sized surface can never make the
+    bar disagree with the text it covers.
     """
-    return max(1.6, len(surface) * 0.62)
+    return max(1.6, char_count * 0.62)
 
 
 def _coerce_exemption(exemption) -> Optional[Exemption]:
@@ -75,35 +76,72 @@ def _document_ref(title: str, segments: list[Segment]) -> str:
     return f"FOI-{digest}"
 
 
-def _render_segment_html(segment: Segment, ref_by_span: dict[int, int]) -> str:
+def _covered_ranges(segment: Segment) -> list[tuple[int, int, RedactionSpan]]:
+    """Clamped, non-overlapping ranges to black out, in document order.
+
+    Offsets arrive from a language model and are not trusted: they can fall
+    outside the text, run backwards, or overlap a neighbour. A span that is
+    merely skipped leaves its characters in the release copy, so every span is
+    clamped into the text and trimmed to start where the previous one ended.
+    A span left with nothing of its own to cover is dropped, because an earlier
+    bar already hides all of it.
+    """
+    length = len(segment.text)
+    clamped: list[tuple[int, int, RedactionSpan]] = []
+    for sp in segment.spans:
+        try:
+            start = min(max(int(sp.start), 0), length)
+            end = min(max(int(sp.end), 0), length)
+        except (TypeError, ValueError):
+            continue
+        if end > start:
+            clamped.append((start, end, sp))
+
+    clamped.sort(key=lambda item: (item[0], -item[1]))
+    ranges: list[tuple[int, int, RedactionSpan]] = []
+    cursor = 0
+    for start, end, sp in clamped:
+        start = max(start, cursor)
+        if end <= start:
+            continue
+        ranges.append((start, end, sp))
+        cursor = end
+    return ranges
+
+
+def _render_segment_html(segment: Segment, first_ref: int
+                         ) -> tuple[str, list[tuple[RedactionSpan, int]]]:
     """Render one utterance's text, replacing each redacted span with a bar.
 
     Walks the text left to right; anything not covered by a span is
     HTML-escaped and copied through verbatim, anything covered by a span is
     replaced by a bar. The original characters of a redacted span never reach
-    the returned string.
+    the returned string, and neither does RedactionSpan.surface.
+
+    Returns the markup and the spans that earned a bar, each with the reference
+    number printed beside it, so the schedule can be built from exactly the
+    redactions the reader can see.
     """
     text = segment.text
-    ordered = sorted(segment.spans, key=lambda sp: sp.start)
     out: list[str] = []
+    applied: list[tuple[RedactionSpan, int]] = []
     cursor = 0
-    for sp in ordered:
-        if sp.start < cursor:
-            continue  # overlapping span; first one already claimed this text
-        if sp.start > cursor:
-            out.append(html.escape(text[cursor:sp.start]))
-        ref = ref_by_span[id(sp)]
-        width = _bar_width_ch(sp.surface)
+    for start, end, sp in _covered_ranges(segment):
+        if start > cursor:
+            out.append(html.escape(text[cursor:start]))
+        ref = first_ref + len(applied)
+        width = _bar_width_ch(end - start)
         out.append(
             f'<span class="redbar" style="width:{width:.2f}ch" '
             f'role="img" aria-label="redacted text"></span>'
             f'<sup class="refnum" id="ref-{ref}">'
             f'<a href="#sched-{ref}">{ref}</a></sup>'
         )
-        cursor = sp.end
+        applied.append((sp, ref))
+        cursor = end
     if cursor < len(text):
         out.append(html.escape(text[cursor:]))
-    return "".join(out)
+    return "".join(out), applied
 
 
 _CSS = r"""
@@ -287,18 +325,14 @@ def build_export(segments: list[Segment], title: str, classification: str) -> st
     Returns the full HTML document as a string. Never writes to disk itself
     — see write_and_open_export for that.
     """
-    ordered_spans: list[tuple[Segment, RedactionSpan]] = []
-    for seg in segments:
-        for sp in sorted(seg.spans, key=lambda s: s.start):
-            ordered_spans.append((seg, sp))
-    ref_by_span = {id(sp): i + 1 for i, (_, sp) in enumerate(ordered_spans)}
-
     generated = datetime.now(timezone.utc)
     doc_ref = _document_ref(title, segments)
 
+    ordered_spans: list[tuple[Segment, RedactionSpan]] = []
     transcript_rows = []
     for seg in segments:
-        body = _render_segment_html(seg, ref_by_span)
+        body, applied = _render_segment_html(seg, len(ordered_spans) + 1)
+        ordered_spans.extend((seg, sp) for sp, _ in applied)
         transcript_rows.append(
             f'<div class="utterance">'
             f'<div class="meta"><span class="ts">{_format_timestamp(seg.t_start)}</span>'
@@ -408,11 +442,11 @@ def write_and_open_export(html_str: str, filename_hint: str = "export", open_bro
     EXPORT_DIR.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     safe_hint = "".join(c if c.isalnum() or c in "-_" else "_" for c in filename_hint).strip("_")[:60] or "export"
-    path = EXPORT_DIR / f"{safe_hint}-{timestamp}.html"
+    path = (EXPORT_DIR / f"{safe_hint}-{timestamp}.html").resolve()
     path.write_text(html_str, encoding="utf-8")
     if open_browser:
         try:
-            webbrowser.open(f"file://{path.resolve()}")
+            webbrowser.open(path.as_uri())
         except Exception:
             pass
     return path

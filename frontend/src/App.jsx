@@ -3,6 +3,7 @@ import './theme.css'
 import { connect, WS_URL } from './ws.js'
 import { FIXTURE_SEGMENTS } from './fixture_data.js'
 import { PaneHeaders, SegmentRow, OverridePopover } from './panes.jsx'
+import MinutesPanel from './minutes.jsx'
 
 const QS = new URLSearchParams(window.location.search)
 const FIXTURE = QS.get('fixture') === '1'
@@ -11,6 +12,24 @@ const REPLAY_OFFERED = FIXTURE || QS.get('replay') === '1'
 const CLASSIFICATION = 'OFFICIAL-SENSITIVE'
 const DEFAULT_TITLE = 'Joint Procurement & Safeguarding Review'
 const EMPTY_STATS = { bytes_egress: 0, segments: 0, redactions: 0, latency_ms_p50: 0 }
+
+// Display only. The backend reads .redline_env.json at runtime and picks the model.
+const MINUTES_MODEL = 'gemma4:12b'
+
+const FIXTURE_MINUTES = {
+  attendees: ['CLLR OKAFOR', 'DR WHITFIELD'],
+  decisions: [
+    { text: 'Ardent Systems is the preferred bidder, at £2.4 million.', decided_by: 'CLLR OKAFOR' },
+    { text: 'The safeguarding case stays on the confidential log only.', decided_by: 'CLLR OKAFOR' }
+  ],
+  actions: [
+    { text: 'Send the full case summary to the chair separately.', owner: 'DR WHITFIELD' },
+    { text: 'Caveat the procurement award in the minutes.', owner: 'CLLR OKAFOR' }
+  ],
+  unresolved: [
+    'The safeguarding threshold policy under the contract is still in formulation.'
+  ]
+}
 
 const FIXTURE_STEP_MS = 2400
 const FIXTURE_FINAL_MS = 1180
@@ -28,6 +47,8 @@ export default function App () {
   const [target, setTarget] = useState(null)
   const [exportPath, setExportPath] = useState(null)
   const [minutes, setMinutes] = useState(null)
+  const [minutesPending, setMinutesPending] = useState(false)
+  const [minutesOpen, setMinutesOpen] = useState(false)
 
   const clientRef = useRef(null)
   const timersRef = useRef([])
@@ -67,6 +88,8 @@ export default function App () {
     setTarget(null)
     setExportPath(null)
     setMinutes(null)
+    setMinutesPending(false)
+    setMinutesOpen(false)
     stickRef.current = true
   }, [])
 
@@ -90,8 +113,15 @@ export default function App () {
           case 'session.stats':
             setStats({ ...EMPTY_STATS, ...p })
             break
+          case 'minutes.pending':
+            setMinutes(null)
+            setMinutesPending(true)
+            setMinutesOpen(true)
+            break
           case 'minutes.ready':
             setMinutes(p)
+            setMinutesPending(false)
+            setMinutesOpen(true)
             break
           case 'export.ready':
             setExportPath(p.path || 'export complete')
@@ -144,11 +174,7 @@ export default function App () {
 
     at(FIXTURE_SEGMENTS.length * FIXTURE_STEP_MS + 1200, () => {
       setRunning(false)
-      setMinutes({
-        decisions: ['Preferred bidder noted, subject to caveat', 'Safeguarding case minuted to confidential log'],
-        actions: ['Circulate full case summary separately'],
-        attendees: ['CLLR OKAFOR', 'DR WHITFIELD']
-      })
+      setMinutes(FIXTURE_MINUTES)
     })
   }, [clearTimers, resetSession, upsert, applyRedaction])
 
@@ -176,6 +202,21 @@ export default function App () {
   const onExport = () => {
     send('export.request', { format: 'html' })
     if (FIXTURE) setTimeout(() => setExportPath('exports/foi_release_2026-08-22.html'), 700)
+  }
+
+  // The internal minute is built from the unredacted transcript. The backend reads
+  // Segment.text as transcribed and never applies the release spans.
+  const onMinutes = () => {
+    send('minutes.request', {})
+    setMinutes(null)
+    setMinutesPending(true)
+    setMinutesOpen(true)
+    if (FIXTURE) {
+      setTimeout(() => {
+        setMinutesPending(false)
+        setMinutes(FIXTURE_MINUTES)
+      }, 1600)
+    }
   }
 
   const onPick = (e, segmentId, spanIndex, span) => {
@@ -282,7 +323,15 @@ export default function App () {
         {FIXTURE || conn !== 'open'
           ? <div className="conn">{FIXTURE ? 'No backend — fixture' : conn}</div>
           : null}
+        <button
+          className="btn mn-go"
+          onClick={onMinutes}
+          disabled={tally.finals === 0 || minutesPending}
+        >
+          {minutesPending ? 'Generating…' : 'Generate minutes'}
+        </button>
         <button className="btn primary" onClick={onExport}>Export FOI response</button>
+        {exportPath ? <div className="conn">Exported &rarr; {exportPath}</div> : null}
       </div>
 
       <PaneHeaders
@@ -329,6 +378,15 @@ export default function App () {
 
 
       <OverridePopover target={target} onAction={onOverride} onClose={() => setTarget(null)} />
+
+      <MinutesPanel
+        open={minutesOpen}
+        pending={minutesPending}
+        minutes={minutes}
+        segmentCount={tally.finals}
+        modelTag={MINUTES_MODEL}
+        onClose={() => setMinutesOpen(false)}
+      />
     </div>
   )
 }

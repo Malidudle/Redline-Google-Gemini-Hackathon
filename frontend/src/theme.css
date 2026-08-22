@@ -39,7 +39,7 @@ input { font-family: inherit; }
 .app {
   height: 100%;
   display: grid;
-  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
   max-width: 100vw;
   overflow-x: hidden;
 }
@@ -267,7 +267,6 @@ input { font-family: inherit; }
   word-break: break-word;
 }
 .utt.interim { opacity: 0.4; }
- }
 
 .fill { min-height: 56px; }
 .fill.r { border-left: 1px solid var(--rule); }

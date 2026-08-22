@@ -34,12 +34,20 @@ SHORT_SEGMENT_HANGOVER_MS = 2600
 MIN_SEGMENT_S = 3.5
 MAX_UTTERANCE_S = 15.0
 MIN_UTTERANCE_S = 0.45
-PREROLL_BLOCKS = 3
+PREROLL_BLOCKS = 6
 TAIL_KEEP_BLOCKS = 2
 RING_SECONDS = 30
 
-ABSOLUTE_FLOOR_RMS = 0.006
-SPEECH_FACTOR = 3.0
+# Measured in the actual room: ambient 0.0033 rms, a normal voice at laptop
+# distance 0.01-0.02. The old gate (floor*3, min 0.006) sat at ~0.0098 — right at
+# the bottom of the speech band — so quiet syllables and word endings dipped under
+# it, the gate flickered closed mid-sentence, and whole clauses were never captured.
+ABSOLUTE_FLOOR_RMS = 0.0035
+SPEECH_FACTOR = 2.0
+# Once open, the gate only closes if the level falls well below the opening
+# threshold. A sentence is one event, not a run of syllables.
+HOLD_FACTOR = 0.45
+NOISE_FLOOR_CAP = 0.008
 
 
 @dataclass
@@ -155,16 +163,24 @@ class AudioCapture:
         rms = float(np.sqrt(np.mean(np.square(block)))) if block.size else 0.0
         self._blocks_seen += 1
         if self._calibrated < 10:
-            self._noise_floor = max(
-                ABSOLUTE_FLOOR_RMS * 0.25,
-                (self._noise_floor * self._calibrated + rms) / (self._calibrated + 1),
+            # Someone talking during the first second must not become the "floor".
+            self._noise_floor = min(
+                NOISE_FLOOR_CAP,
+                max(ABSOLUTE_FLOOR_RMS * 0.25,
+                    (self._noise_floor * self._calibrated + rms) / (self._calibrated + 1)),
             )
             self._calibrated += 1
             return False
         threshold = max(self._noise_floor * SPEECH_FACTOR, ABSOLUTE_FLOOR_RMS)
-        speech = rms > threshold
-        if not speech:
-            self._noise_floor = 0.95 * self._noise_floor + 0.05 * rms
+        if self._active:
+            # Hold the gate open across the dips inside a sentence, but the exit
+            # level must stay above the room's own noise or it never closes.
+            speech = rms > max(threshold * HOLD_FACTOR, self._noise_floor * 1.3)
+        else:
+            speech = rms > threshold
+        if not speech and not self._active:
+            self._noise_floor = min(NOISE_FLOOR_CAP,
+                                    0.95 * self._noise_floor + 0.05 * rms)
         return speech
 
     def _buffered_samples(self) -> int:
