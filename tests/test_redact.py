@@ -218,10 +218,13 @@ def test_prompt_has_four_worked_examples_and_the_exemptions():
         or "two" in prompt   # only the last two context lines are carried
 
 
-def test_prompt_carries_only_the_last_two_context_lines():
+def test_prompt_carries_only_the_most_recent_context_line():
+    """One prior segment, not two. Measured: two cost three redactions on an
+    unseen transcript by pulling attention off the segment being annotated."""
     prompt = model_client.build_prompt("Current.", ["oldest line", "middle line", "newest line"])
     tail = prompt.split("### Now do this one")[1]
-    assert "middle line" in tail and "newest line" in tail
+    assert "newest line" in tail
+    assert "middle line" not in tail
     assert "oldest line" not in tail
 
 
