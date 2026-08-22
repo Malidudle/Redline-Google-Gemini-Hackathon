@@ -4,7 +4,7 @@ set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
 MODEL_TAG="gemma4:e2b"
-MINUTES_MODEL_TAG="gemma4:12b"
+MINUTES_MODEL_TAG="gemma4:e2b"   # same model as redaction: already loaded, no swap, ~2.5s
 MODEL_TAG_FALLBACK="gemma3n:e2b"
 
 echo "== REDLINE setup =="
