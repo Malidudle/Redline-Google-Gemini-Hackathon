@@ -74,7 +74,6 @@ export function buildParts (text, spans) {
   return parts
 }
 
-const OVERPRINT_MIN_CHARS = 7
 const TOKEN_STAGGER_MS = 20
 
 function RedactedSpan ({ segmentId, part, open, removed, compact, onPick }) {
@@ -112,9 +111,7 @@ function RedactedSpan ({ segmentId, part, open, removed, compact, onPick }) {
         return (
           <span key={i} className="tok" onClick={pick}>
             {piece}
-            <span className="bar" style={barStyle} aria-hidden="true">
-              {piece.length >= OVERPRINT_MIN_CHARS ? <span className="op" data-code={exemption} /> : null}
-            </span>
+            <span className="bar" style={barStyle} aria-hidden="true" />
           </span>
         )
       })}
@@ -131,7 +128,6 @@ function Utterance ({ segmentId, seg, redact, removed, openKey, onPick }) {
     return (
       <div className={'utt' + (seg.final ? '' : ' interim')}>
         {seg.text}
-        {seg.final ? null : <span className="caret">&#9612;</span>}
       </div>
     )
   }
@@ -165,7 +161,6 @@ function releaseTag (seg) {
   if (!seg.final) return null
   if (seg.redaction_state === 'failed') return { text: 'REVIEW REQUIRED', cls: 'tag' }
   if (seg.redaction_state === 'pending') return { text: 'ANALYSING', cls: 'tag scanning' }
-  if (!seg.spans || seg.spans.length === 0) return { text: 'NO EXEMPTION ENGAGED', cls: 'tag' }
   return null
 }
 
@@ -206,12 +201,12 @@ export function PaneHeaders ({ segmentCount, redactionCount, exemptionCount }) {
     <div className="panehead">
       <div className="ph">
         <h2>Internal Record</h2>
-        <span className="tally">{String(segmentCount).padStart(3, '0')} SEGMENTS &middot; NOTHING WITHHELD</span>
+        <span className="tally">{segmentCount || ''}</span>
       </div>
       <div className="ph">
         <h2>FOI Release</h2>
         <span className="tally">
-          {String(redactionCount).padStart(3, '0')} REDACTIONS &middot; {exemptionCount} EXEMPTIONS ENGAGED
+          {redactionCount ? redactionCount + (redactionCount === 1 ? ' redaction' : ' redactions') : ''}
         </span>
       </div>
     </div>
@@ -250,15 +245,3 @@ export function OverridePopover ({ target, onAction, onClose }) {
   )
 }
 
-export function WifiOff () {
-  return (
-    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-         strokeWidth="1.9" strokeLinecap="square" aria-hidden="true">
-      <path d="M2.5 8.6a16 16 0 0 1 19 0" />
-      <path d="M5.8 12.4a11 11 0 0 1 12.4 0" />
-      <path d="M9.1 16.1a6 6 0 0 1 5.8 0" />
-      <path d="M12 19.6h.01" strokeWidth="2.6" />
-      <path d="M3 3l18 18" strokeWidth="2.2" />
-    </svg>
-  )
-}

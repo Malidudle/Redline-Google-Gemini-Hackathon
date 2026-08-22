@@ -161,6 +161,14 @@ Rules you must obey:
 4. Mark the shortest span that carries the sensitive information.
 5. If there is nothing to withhold, return {"redactions": []}.
 6. Return only "text" and "exemption" for each redaction. Do not add a reason.
+7. NEVER withhold these. They are routine meeting furniture, not exempt information:
+   - the date the meeting is held, or any ordinary calendar date that is not a person's
+     date of birth ("the 22nd of August", "next Tuesday", "the March meeting")
+   - agenda item numbers, minute numbers, and reference numbers of the meeting itself
+   - the name of the council, the committee, the panel, or the meeting
+   - job titles that stand alone and are not attached to a named individual
+     ("the committee", "the evaluation panel", "officers")
+   - ordinary courtesies and procedural talk ("thanks for joining", "moving to item 4")
 """
 
 _EXAMPLES = """

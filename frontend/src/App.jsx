@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './theme.css'
 import { connect, WS_URL } from './ws.js'
 import { FIXTURE_SEGMENTS } from './fixture_data.js'
-import { PaneHeaders, SegmentRow, OverridePopover, WifiOff } from './panes.jsx'
+import { PaneHeaders, SegmentRow, OverridePopover } from './panes.jsx'
 
 const FIXTURE = new URLSearchParams(window.location.search).get('fixture') === '1'
 const CLASSIFICATION = 'OFFICIAL-SENSITIVE'
@@ -13,13 +13,6 @@ const FIXTURE_STEP_MS = 2400
 const FIXTURE_FINAL_MS = 1180
 const STICK_THRESHOLD_PX = 90
 
-function formatBytes (n) {
-  const v = Number(n)
-  if (!Number.isFinite(v) || v <= 0) return '0 B'
-  if (v < 1024) return Math.round(v) + ' B'
-  if (v < 1048576) return (v / 1024).toFixed(1) + ' KB'
-  return (v / 1048576).toFixed(1) + ' MB'
-}
 
 export default function App () {
   const [title, setTitle] = useState(DEFAULT_TITLE)
@@ -254,28 +247,15 @@ export default function App () {
     }
   }, [segments, overrides])
 
-  const egressHot = Number(stats.bytes_egress) > 0
 
   return (
     <div className="app">
       <header className="hdr">
         <div className="brand">
           <span className="wm">REDLINE</span>
-          <span className="sub">On-device disclosure control</span>
         </div>
         <div className="sess">
-          <span className="k">Session</span>
           <span className="v">{title || 'Untitled session'}</span>
-        </div>
-        <div className="classif">{CLASSIFICATION}</div>
-        <div className="offline">
-          <WifiOff />
-          <span className="lbl">NO<br />NETWORK</span>
-        </div>
-        <div className={'egress' + (egressHot ? ' hot' : '')}>
-          <div className="k">Data sent externally</div>
-          <div className="v">{formatBytes(stats.bytes_egress)}</div>
-          <div className="note"><span className="dot" />{egressHot ? 'EGRESS DETECTED' : 'VERIFIED LOCAL'}</div>
         </div>
       </header>
 
@@ -295,10 +275,9 @@ export default function App () {
         {running
           ? <button className="btn" onClick={onStop}>Stop</button>
           : <button className="btn" onClick={onStart}>Start recording</button>}
-        <div className={'conn ' + conn}>
-          <span className="dot" />
-          {FIXTURE ? 'FIXTURE MODE — NO BACKEND' : conn.toUpperCase()}
-        </div>
+        {FIXTURE || conn !== 'open'
+          ? <div className="conn">{FIXTURE ? 'No backend — fixture' : conn}</div>
+          : null}
         <button className="btn primary" onClick={onExport}>Export FOI response</button>
       </div>
 
@@ -343,18 +322,6 @@ export default function App () {
         )}
       </div>
 
-      <footer className="status">
-        <span>{FIXTURE ? 'SOURCE fixture (demo/seed_transcript.json)' : 'SOCKET ' + WS_URL}</span>
-        <span>SEGMENTS <b>{tally.finals}</b></span>
-        <span>REDACTIONS <b>{tally.redactions}</b></span>
-        <span>REDACTION p50 <b>{Math.round(Number(stats.latency_ms_p50) || 0)} ms</b></span>
-        {minutes
-          ? <span>MINUTE <b>{(minutes.decisions || []).length}</b> decisions / <b>{(minutes.actions || []).length}</b> actions</span>
-          : null}
-        <span className="right">
-          {exportPath ? 'EXPORTED ' + exportPath : 'INFERENCE gemma · localhost · no egress'}
-        </span>
-      </footer>
 
       <OverridePopover target={target} onAction={onOverride} onClose={() => setTarget(null)} />
     </div>

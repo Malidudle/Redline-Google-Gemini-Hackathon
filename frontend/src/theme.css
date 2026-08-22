@@ -73,14 +73,6 @@ input { font-family: inherit; }
   padding-bottom: 5px;
   align-self: flex-start;
 }
-.brand .sub {
-  margin-top: 7px;
-  font-size: 9.5px;
-  font-weight: 600;
-  letter-spacing: 0.2em;
-  color: var(--dim);
-  text-transform: uppercase;
-}
 
 .sess {
   padding: 0 24px;
@@ -90,7 +82,6 @@ input { font-family: inherit; }
   border-right: 1px solid var(--rule-dark);
   min-width: 0;
 }
-.sess .k { font-size: 9.5px; font-weight: 600; letter-spacing: 0.2em; color: var(--dim); text-transform: uppercase; }
 .sess .v {
   margin-top: 6px;
   font-size: 16px;
@@ -100,68 +91,6 @@ input { font-family: inherit; }
   overflow: hidden;
   text-overflow: ellipsis;
 }
-
-.classif {
-  align-self: center;
-  margin: 0 24px;
-  border: 2px solid var(--light);
-  padding: 7px 12px 6px;
-  font-size: 12.5px;
-  font-weight: 800;
-  letter-spacing: 0.2em;
-  white-space: nowrap;
-}
-
-.offline {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 0 20px;
-  border-left: 1px solid var(--rule-dark);
-  color: var(--dim);
-}
-.offline .lbl { font-size: 9.5px; font-weight: 700; letter-spacing: 0.18em; line-height: 1.35; }
-
-.egress {
-  padding: 10px 24px 10px 22px;
-  border-left: 1px solid var(--rule-dark);
-  background: #0A0C0D;
-  text-align: right;
-  min-width: 268px;
-  flex: 0 1 auto;
-}
-.egress .k {
-  font-size: 9.5px;
-  font-weight: 700;
-  letter-spacing: 0.2em;
-  color: var(--dim);
-  text-transform: uppercase;
-}
-.egress .v {
-  margin-top: 3px;
-  font-family: var(--mono);
-  font-size: 36px;
-  font-weight: 700;
-  line-height: 1.05;
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
-  color: #FFFFFF;
-}
-.egress.hot .v { color: #FF5A4D; }
-.egress .note {
-  margin-top: 3px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  justify-content: flex-end;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  color: var(--ok);
-}
-.egress.hot .note { color: #FF5A4D; }
-.dot { width: 7px; height: 7px; background: currentColor; display: inline-block; }
 
 /* ---------------- controls ---------------- */
 
@@ -222,13 +151,6 @@ input { font-family: inherit; }
 .btn.primary { background: var(--light); color: var(--ink); margin-left: auto; }
 .btn.primary:hover { background: #FFFFFF; }
 .btn:disabled { opacity: 0.38; cursor: default; }
-
-.conn { display: flex; align-items: center; gap: 7px; font-size: 9.5px; font-weight: 700; letter-spacing: 0.16em; color: var(--dim); }
-.conn .dot { width: 8px; height: 8px; }
-.conn.open { color: var(--ok); }
-.conn.closed { color: #FF5A4D; }
-.conn.connecting { color: #EAB308; }
-.conn.fixture { color: #60A5FA; }
 
 /* ---------------- pane headers ---------------- */
 
@@ -345,8 +267,7 @@ input { font-family: inherit; }
   word-break: break-word;
 }
 .utt.interim { opacity: 0.4; }
-.utt .caret { animation: blink 1s steps(1, end) infinite; }
-@keyframes blink { 0%, 49% { opacity: 1 } 50%, 100% { opacity: 0 } }
+ }
 
 .fill { min-height: 56px; }
 .fill.r { border-left: 1px solid var(--rule); }
@@ -382,19 +303,6 @@ input { font-family: inherit; }
   pointer-events: none;
 }
 @keyframes wipe { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-
-.bar .op {
-  font-family: var(--sans);
-  font-size: 7.5px;
-  font-weight: 700;
-  letter-spacing: 0.13em;
-  color: rgba(255, 255, 255, 0.28);
-  white-space: nowrap;
-  user-select: none;
-}
-/* Generated content keeps the overprint out of textContent, so copying the
-   release pane yields the real transcript rather than statute codes. */
-.bar .op::after { content: attr(data-code); }
 
 /* Revealing a redaction lifts the bars entirely and marks the whole phrase as
    one continuous highlight, so a wrapped span still reads as a single quotation. */
@@ -487,28 +395,8 @@ input { font-family: inherit; }
 
 .scrim { position: fixed; inset: 0; z-index: 55; }
 
-/* ---------------- footer ---------------- */
-
-.status {
-  display: flex;
-  align-items: center;
-  gap: 22px;
-  padding: 7px 22px;
-  background: var(--chrome);
-  border-top: 1px solid var(--rule-dark);
-  font-family: var(--mono);
-  font-size: 10.5px;
-  letter-spacing: 0.06em;
-  color: var(--dim);
-  font-variant-numeric: tabular-nums;
-}
-.status b { color: var(--light); font-weight: 600; }
-.status .right { margin-left: auto; color: #6E797E; }
-
 @media (max-width: 1280px) {
   .utt { font-size: 16px; }
-  .egress .v { font-size: 30px; }
-  .egress { min-width: 232px; }
   .body { padding-right: 18px; }
 }
 
@@ -551,40 +439,27 @@ input { font-family: inherit; }
 }
 .ebox .btn:hover { background: #262C31; }
 
+/* ---------------- responsive ---------------- */
 
-/* ---------------- responsive ----------------
-   The header used to need 1205px of rigid cells. Below that the grid overflowed
-   horizontally and pushed the FOI RELEASE pane off-screen, which is the one thing
-   the page exists to show. Both panes now stay visible at any width and any zoom. */
+.conn {
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
 
 .ctrl { flex-wrap: wrap; }
 .sess { flex: 1 1 200px; min-width: 0; }
-.brand, .classif, .offline, .egress { flex: 0 0 auto; }
-
-@media (max-width: 1400px) {
-  .egress { min-width: 200px; padding: 10px 18px; }
-  .egress .v { font-size: 28px; }
-  .brand { padding: 11px 16px 9px; }
-  .sess { padding-left: 16px; padding-right: 16px; }
-}
+.brand { flex: 0 0 auto; }
 
 @media (max-width: 1180px) {
   .panehead h2 { white-space: nowrap; }
   .panehead .tally { font-size: 8.5px; letter-spacing: 0.08em; text-align: right; }
-  .offline { padding: 0 12px; }
-  .offline .lbl { display: none; }
-  .classif { padding: 0 12px; }
-  .egress { min-width: 150px; padding: 8px 14px; }
-  .egress .v { font-size: 22px; }
-  .brand .tag { display: none; }
   .body { padding: 13px 18px 15px 14px; }
 }
 
 @media (max-width: 980px) {
   .panehead h2 { font-size: 13px; }
   .panehead .tally { font-size: 7.5px; }
-  .classif { display: none; }
-  .egress { min-width: 120px; }
-  .egress .v { font-size: 18px; }
   .ctrl input.title { flex: 1 1 120px; }
 }
