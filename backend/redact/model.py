@@ -455,6 +455,24 @@ def _request_body(prompt: str) -> dict[str, Any]:
     return body
 
 
+async def warm() -> float:
+    """Prime Ollama's prefix cache with the REAL prompt, not a one-token dummy.
+
+    The few-shot block is ~2000 tokens and never varies, so Ollama caches it and a
+    warm call costs ~1.3s. A dummy "ok" prompt loads the weights but leaves that
+    prefix cold, and the first real redaction then blows the timeout — which is the
+    demo's first utterance. Returns the measured seconds.
+    """
+    t0 = time.perf_counter()
+    try:
+        # Generous timeout: this call exists to absorb the cold start, so it must be
+        # allowed to finish. Its cost is paid at boot, not during the meeting.
+        await annotate("Warm up.", [], timeout=60.0)
+    except Exception:
+        pass
+    return time.perf_counter() - t0
+
+
 async def annotate(text: str, context: Iterable[str] | None = None,
                    timeout: float | None = None) -> tuple[list[RedactionSpan], str]:
     """Ask Gemma about one segment. Returns (spans, "done"|"failed"). Never raises."""
