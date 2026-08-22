@@ -1,8 +1,8 @@
 """Tests for the redaction engine.
 
-The important test in this file is test_seed_transcript_rules_only. It runs the whole
+These tests cover Gemma's path: substring->offset mapping, defensive JSON parsing,
 demo transcript with the model monkeypatched to raise, which is the state of the world
-if Ollama dies on stage. Everything the demo shows must come from the rules layer.
+span merging, and what happens when Ollama is unavailable.
 
 Async tests use asyncio.run() rather than pytest-asyncio, so the file runs even if the
 plugin is missing. It also runs standalone: python3 tests/test_redact.py
@@ -25,12 +25,6 @@ from shared.contracts import Exemption, RedactionSpan, Segment  # noqa: E402
 
 from backend.redact import model as model_client  # noqa: E402
 from backend.redact import pipeline  # noqa: E402
-from backend.redact.rules import (  # noqa: E402
-    find_money,
-    find_nino,
-    find_rule_spans,
-    nhs_check_digit_ok,
-)
 
 SEED_PATH = ROOT / "demo" / "seed_transcript.json"
 SEED = json.loads(SEED_PATH.read_text())
@@ -50,7 +44,7 @@ def covered(spans, needle: str) -> RedactionSpan | None:
 
 
 # ==========================================================================
-# 1. The demo transcript, rules layer only, model completely unavailable
+# 1. The demo transcript with Gemma unavailable
 # ==========================================================================
 
 # (segment id, expected substring, expected exemption)
@@ -79,53 +73,22 @@ def dead_model(monkeypatch):
     monkeypatch.setattr(model_client, "annotate", boom)
 
 
-@pytest.mark.parametrize("segment_id,needle,exemption", SEED_EXPECTATIONS)
-def test_seed_transcript_rules_only(segment_id, needle, exemption):
-    text = SEED_BY_ID[segment_id]["text"]
-    spans = find_rule_spans(text)
-    hit = covered(spans, needle)
-    assert hit is not None, f"{needle!r} not detected in {segment_id}; got {surfaces(spans)}"
-    assert hit.exemption is exemption
-    assert hit.source == "rule"
-    assert hit.confidence == 1.0
-    assert text[hit.start:hit.end] == hit.surface
-
-
-@pytest.mark.parametrize("segment_id", CLEAN_SEED_IDS)
-def test_seed_clean_segments_have_no_rule_spans(segment_id):
-    assert find_rule_spans(SEED_BY_ID[segment_id]["text"]) == []
-
-
 def test_full_pipeline_with_model_dead(dead_model):
+    """Gemma is the only redactor. With Ollama down nothing is proposed, and the
+    pipeline reports that rather than implying the segment is clean."""
     async def run():
-        results = {}
         pipeline.reset_stats()
+        out = []
         for item in SEED:
-            segment = Segment(**item)
-            spans, state = await pipeline.redact_segment(segment, [])
-            results[segment.id] = (spans, state)
-        return results
+            out.append(await pipeline.redact_segment(Segment(**item), []))
+        return out
 
-    results = asyncio.run(run())
-
-    for segment_id, needle, exemption in SEED_EXPECTATIONS:
-        spans, state = results[segment_id]
-        assert state == "done", f"{segment_id} should still be done from rules alone"
-        hit = covered(spans, needle)
-        assert hit is not None, f"{needle!r} lost in {segment_id}: {surfaces(spans)}"
-        assert hit.exemption is exemption
-
-    for spans, _ in results.values():
-        assert_no_overlaps(spans)
-
-    stats = pipeline.get_stats()
-    assert stats["segments"] == len(SEED)
-    assert stats["redactions"] >= len(SEED_EXPECTATIONS)
-    assert stats["model_failures"] == len(SEED)
-
+    for spans, state in asyncio.run(run()):
+        assert spans == []
+        assert state == "failed"
 
 def test_state_is_failed_only_when_nothing_worked(dead_model):
-    """A clean segment with a dead model is not 'done' - nothing reviewed it."""
+    """With Gemma down nothing reviewed the segment, so nothing is 'done'."""
     async def run():
         clean = Segment(text=SEED_BY_ID["174a632e"]["text"])
         dirty = Segment(text=SEED_BY_ID["93f3bc86"]["text"])
@@ -134,12 +97,10 @@ def test_state_is_failed_only_when_nothing_worked(dead_model):
 
     (clean_spans, clean_state), (dirty_spans, dirty_state) = asyncio.run(run())
     assert clean_spans == [] and clean_state == "failed"
-    assert dirty_spans and dirty_state == "done"
+    assert dirty_spans == [] and dirty_state == "failed"
 
 
-# ==========================================================================
-# 2. NHS Modulus 11
-# ==========================================================================
+
 
 VALID_NHS = ["4001234564", "9434765919", "9876543210", "9990000018"]
 INVALID_NHS = [
@@ -150,116 +111,9 @@ INVALID_NHS = [
 ]
 
 
-@pytest.mark.parametrize("digits", VALID_NHS)
-def test_nhs_check_digit_accepts_valid(digits):
-    assert nhs_check_digit_ok(digits) is True
-
-
-@pytest.mark.parametrize("digits", INVALID_NHS)
-def test_nhs_check_digit_rejects_invalid(digits):
-    assert nhs_check_digit_ok(digits) is False
-
-
-@pytest.mark.parametrize("bad", ["123", "", "40012345６4", "abcdefghij", "40012345644"])
-def test_nhs_check_digit_rejects_junk(bad):
-    assert nhs_check_digit_ok(bad) is False
-
-
-@pytest.mark.parametrize("rendered", ["400 123 4564", "400-123-4564", "4001234564"])
-def test_nhs_number_formats_are_detected(rendered):
-    text = f"Please minute the NHS number {rendered} against the case file."
-    hit = covered(find_rule_spans(text), rendered)
-    assert hit is not None and hit.exemption is Exemption.S40_2
-
-
-def test_invalid_nhs_number_is_not_redacted():
-    """Rejecting a number that fails the check is the whole point of the layer."""
-    text = "The reference quoted was 485 777 3456 which is not a valid NHS number."
-    assert covered(find_rule_spans(text), "485 777 3456") is None
-
-
-def test_spoken_nhs_number_is_detected():
-    text = SEED_BY_ID["cbbe2eb9"]["text"]
-    hit = covered(find_rule_spans(text), "four zero zero")
-    assert hit is not None
-    assert hit.surface == "four zero zero, one two three, four five six four"
-
-
-def test_spoken_digits_that_fail_the_check_are_ignored():
-    """1234567890 fails Modulus 11, so the spoken form must not be redacted either."""
-    text = ("The code is one two three four five six seven eight nine zero, "
-            "nothing sensitive.")
-    assert covered(find_rule_spans(text), "one two three") is None
-
-
-def test_short_spoken_digit_run_is_not_an_nhs_number():
-    text = "I want to brief you on one live case and two follow ups."
-    assert find_rule_spans(text) == []
-
-
 # ==========================================================================
 # 3. Other deterministic detectors
 # ==========================================================================
-
-@pytest.mark.parametrize("text,needle,exemption", [
-    ("Write to jane.doe@camden.gov.uk before Friday.", "jane.doe@camden.gov.uk", Exemption.S40_2),
-    ("She lives at SW1A 2AA now.", "SW1A 2AA", Exemption.S40_2),
-    ("Ring her on 07700 900123 tonight.", "07700 900123", Exemption.S40_2),
-    ("Ring the office on 020 7946 0958.", "020 7946 0958", Exemption.S40_2),
-    ("Dial +44 7700 900123 for the duty line.", "+44 7700 900123", Exemption.S40_2),
-    ("Sort code 20-00-00 is on the invoice.", "20-00-00", Exemption.S40_2),
-    ("The account number is 12345678 per the form.", "12345678", Exemption.S40_2),
-    ("He was born on 3 March 1975 in Leeds.", "3 March 1975", Exemption.S40_2),
-    ("Date of birth 14/02/1988 per the referral.", "14/02/1988", Exemption.S40_2),
-    ("Councillor Amara Nwosu chaired it.", "Councillor Amara Nwosu", Exemption.S40_2),
-    ("The bidder was Meridian Facilities Ltd.", "Meridian Facilities Ltd", Exemption.S43_2),
-])
-def test_detector_positives(text, needle, exemption):
-    hit = covered(find_rule_spans(text), needle)
-    assert hit is not None, f"{needle!r} missed; got {surfaces(find_rule_spans(text))}"
-    assert hit.exemption is exemption
-
-
-@pytest.mark.parametrize("nino,expected", [
-    ("AB123456C", True),
-    ("QQ123456C", False),   # Q is not allowed as the first letter
-    ("DA123456A", False),   # D is not allowed as the first letter
-    ("AO123456A", False),   # O is not allowed as the second letter
-    ("BG123456A", False),   # forbidden prefix
-    ("NK123456A", False),   # forbidden prefix
-    ("ZZ123456A", False),   # forbidden prefix
-    ("AB123456E", False),   # suffix must be A-D
-])
-def test_nino_prefix_rules(nino, expected):
-    spans = find_nino(f"His NI number is {nino} on the form.")
-    assert bool(spans) is expected
-
-
-@pytest.mark.parametrize("text,needle", [
-    ("The bid was £2.4 million.", "£2.4 million"),
-    ("The bid was £2.4m.", "£2.4m"),
-    ("The bid was 2.4 million pounds.", "2.4 million pounds"),
-    ("The bid was £2,400,000.", "£2,400,000"),
-    ("The bid was £10,000.", "£10,000"),
-    ("The bid was £1.2bn.", "£1.2bn"),
-])
-def test_money_above_threshold(text, needle):
-    hit = covered(find_rule_spans(text), needle)
-    assert hit is not None and hit.exemption is Exemption.S43_2
-
-
-@pytest.mark.parametrize("text", [
-    "The biscuits cost £45.",
-    "The licence was £9,999.",
-    "We spent £5k on the survey.",
-])
-def test_money_below_threshold_is_ignored(text):
-    assert find_money(text) == []
-
-
-def test_money_threshold_is_configurable():
-    assert find_money("It cost £45.") == []
-    assert len(find_money("It cost £45.", threshold=10.0)) == 1
 
 
 # ==========================================================================
@@ -412,59 +266,12 @@ def test_merge_drops_empty_spans():
     assert pipeline.merge_spans([span(5, 5), span(7, 7)]) == []
 
 
-def test_merge_of_real_rule_and_model_spans_has_no_overlaps():
-    text = SEED_BY_ID["85467ded"]["text"]
-    rule_spans = find_rule_spans(text)
-    model_spans = model_client.map_redactions(text, [
-        {"text": "Dr Sarah Whitfield's referral", "exemption": "s.40(2)"},
-        {"text": "Ardent Systems award", "exemption": "s.43(2)"},
-        {"text": "£2.4 million", "exemption": "s.43(2)"},
-    ])
-    merged = pipeline.merge_spans(rule_spans + model_spans)
-    assert_no_overlaps(merged)
-    assert covered(merged, "Dr Sarah Whitfield") is not None
-    assert covered(merged, "Ardent Systems") is not None
-
-
 # ==========================================================================
 # 7. Acceptance criterion and performance
 # ==========================================================================
 
 ACCEPTANCE_TEXT = ("Dr Sarah Whitfield flagged it, NHS number 400 123 4564, and the "
                    "Ardent Systems bid came in at £2.4 million")
-
-
-def test_acceptance_example_from_rules_alone():
-    spans = pipeline.merge_spans(find_rule_spans(ACCEPTANCE_TEXT))
-    assert_no_overlaps(spans)
-    assert covered(spans, "Dr Sarah Whitfield").exemption is Exemption.S40_2
-    assert covered(spans, "400 123 4564").exemption is Exemption.S40_2
-    assert covered(spans, "Ardent Systems").exemption is Exemption.S43_2
-    assert covered(spans, "£2.4 million").exemption is Exemption.S43_2
-
-
-def test_rules_layer_is_fast():
-    text = " ".join(s["text"] for s in SEED)
-    find_rule_spans(text)  # warm the regex cache
-    started = time.perf_counter()
-    for _ in range(20):
-        find_rule_spans(text)
-    per_call_ms = (time.perf_counter() - started) * 1000 / 20
-    assert per_call_ms < 5.0, f"rules layer took {per_call_ms:.2f}ms per segment"
-
-
-def test_rules_layer_handles_empty_and_odd_input():
-    assert find_rule_spans("") == []
-    assert find_rule_spans("   ") == []
-    assert isinstance(find_rule_spans("£" * 500), list)
-
-
-def test_every_rule_span_surface_matches_its_offsets():
-    for item in SEED:
-        text = item["text"]
-        for s in find_rule_spans(text):
-            assert text[s.start:s.end] == s.surface
-            assert 0 <= s.start < s.end <= len(text)
 
 
 if __name__ == "__main__":

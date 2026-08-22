@@ -1,6 +1,6 @@
 """Local Gemma client. Sends one segment to Ollama and maps the reply back to offsets.
 
-Everything here is best effort. The rules layer is the safety net, so this module
+Gemma is the only redactor, so this module
 never raises: a timeout, a dead server, a malformed body, or a hallucinated substring
 all degrade to fewer spans, never to an exception.
 

@@ -26,9 +26,9 @@ BLOCK_SAMPLES = SAMPLE_RATE * BLOCK_MS // 1000
 INTERIM_EVERY_S = 1.0
 # Read a long identifier aloud — "four eight five ... two nine one" — and the gaps
 # between digit groups run well past half a second. At 600ms every group became its
-# own segment, so the NHS number never reached the rules layer as ten consecutive
-# digits. A segment still short of MIN_SEGMENT_S must wait for a much longer pause
-# before it is allowed to close, which keeps a spoken sentence in one piece.
+# own segment, so Gemma never saw the number as ten consecutive digits. A segment
+# still short of MIN_SEGMENT_S must wait for a much longer pause before it is
+# allowed to close, which keeps a spoken sentence in one piece.
 SILENCE_HANGOVER_MS = 1300
 SHORT_SEGMENT_HANGOVER_MS = 2600
 MIN_SEGMENT_S = 3.5
