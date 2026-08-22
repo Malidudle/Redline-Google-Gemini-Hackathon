@@ -47,6 +47,8 @@ SPEECH_FACTOR = 2.0
 # Once open, the gate only closes if the level falls well below the opening
 # threshold. A sentence is one event, not a run of syllables.
 HOLD_FACTOR = 0.45
+# A keyboard click or a cough is one loud 100ms block; a word is several in a row.
+ONSET_BLOCKS = 3
 NOISE_FLOOR_CAP = 0.008
 
 
@@ -95,6 +97,7 @@ class AudioCapture:
         )
 
         self._noise_floor = ABSOLUTE_FLOOR_RMS
+        self._onset_run = 0
         self._calibrated = 0
         self._blocks_seen = 0
 
@@ -215,7 +218,8 @@ class AudioCapture:
         speech = self._classify(block)
 
         if not self._active:
-            if speech:
+            self._onset_run = (self._onset_run + 1) if speech else 0
+            if speech and self._onset_run >= ONSET_BLOCKS:
                 pre = list(self._preroll)
                 self._buffer = pre + [block]
                 self._utt_start_sample = sample_index - sum(b.size for b in pre)
@@ -286,10 +290,8 @@ class AudioCapture:
                     sample_index += block.size
                 await asyncio.sleep(0)
         finally:
-            if self._active and self._buffer:
-                tail = self._emit_final(trim_tail=False)
-                if tail is not None:
-                    yield tail
+            # No tail flush. The user pressed Stop; a half-sentence in flight is
+            # dropped rather than published after the recording has ended.
             self.stop()
 
 

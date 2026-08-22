@@ -283,6 +283,8 @@ async def mic_loop(session: SessionState) -> None:
                 t_end=round(event.t_end, 2),
                 final=is_final,
             )
+            if not session.running:
+                break
             if is_final:
                 emit_final(seg, session)
                 ids.pop(event.utt, None)

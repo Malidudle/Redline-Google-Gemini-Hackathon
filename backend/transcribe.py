@@ -100,13 +100,41 @@ _JUNK_TOKENS = re.compile(r"\[(?:BLANK_AUDIO|SILENCE|MUSIC|NOISE|INAUDIBLE)\]|\(
 
 
 def clean_transcript(text: str) -> str:
-    """Strip whisper's non-speech markers. A segment that is only markers is empty,
-    and main.py drops empty finals, so [BLANK_AUDIO] never reaches the screen."""
+    """Strip whisper's non-speech markers and its hallucinations.
+
+    On near-silent audio whisper invents text: a lone "The", or a phrase looping
+    ("state of the state of the"). A segment that is only that is empty, and
+    main.py drops empty finals, so none of it reaches the screen."""
     if not text:
         return ""
     out = _JUNK_TOKENS.sub("", text)
     out = re.sub(r"\s{2,}", " ", out).strip()
+    words = re.findall(r"[A-Za-z0-9£'.,-]+", out)
+    if len(words) <= 2 and all(w.strip(".,").lower() in _FILLER for w in words):
+        return ""
+    if _is_looping(words):
+        return ""
     return out
+
+
+_FILLER = {"the", "a", "an", "and", "so", "uh", "um", "you", "i", "it", "thank", "thanks", "okay", "ok"}
+
+
+def _is_looping(words: list[str]) -> bool:
+    """True when the same 2-3 word phrase makes up most of a short output."""
+    if len(words) < 4:
+        return False
+    low = [w.strip(".,").lower() for w in words]
+    for n in (2, 3):
+        grams = [" ".join(low[i:i + n]) for i in range(len(low) - n + 1)]
+        if not grams:
+            continue
+        top = max(set(grams), key=grams.count)
+        count = grams.count(top)
+        # A repeated phrase that accounts for most of the words is a loop, not speech.
+        if count >= 2 and count * n >= 0.6 * len(low):
+            return True
+    return False
 
 
 class Transcriber:
