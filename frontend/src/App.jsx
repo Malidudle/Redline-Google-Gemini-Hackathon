@@ -4,7 +4,10 @@ import { connect, WS_URL } from './ws.js'
 import { FIXTURE_SEGMENTS } from './fixture_data.js'
 import { PaneHeaders, SegmentRow, OverridePopover } from './panes.jsx'
 
-const FIXTURE = new URLSearchParams(window.location.search).get('fixture') === '1'
+const QS = new URLSearchParams(window.location.search)
+const FIXTURE = QS.get('fixture') === '1'
+// Replay is the fallback for a dead mic or a loud room. It is opt-in: ?replay=1
+const REPLAY_OFFERED = FIXTURE || QS.get('replay') === '1'
 const CLASSIFICATION = 'OFFICIAL-SENSITIVE'
 const DEFAULT_TITLE = 'Joint Procurement & Safeguarding Review'
 const EMPTY_STATS = { bytes_egress: 0, segments: 0, redactions: 0, latency_ms_p50: 0 }
@@ -16,7 +19,7 @@ const STICK_THRESHOLD_PX = 90
 
 export default function App () {
   const [title, setTitle] = useState(DEFAULT_TITLE)
-  const [source, setSource] = useState('replay')
+  const [source, setSource] = useState(REPLAY_OFFERED ? 'replay' : 'mic')
   const [running, setRunning] = useState(false)
   const [segments, setSegments] = useState([])
   const [stats, setStats] = useState(EMPTY_STATS)
@@ -267,11 +270,14 @@ export default function App () {
           onChange={(e) => setTitle(e.target.value)}
           spellCheck="false"
         />
-        <span className="lbl">Source</span>
-        <div className="seg">
-          <button className={source === 'mic' ? 'on' : ''} onClick={() => setSource('mic')}>Mic</button>
-          <button className={source === 'replay' ? 'on' : ''} onClick={() => setSource('replay')}>Replay</button>
-        </div>
+        {REPLAY_OFFERED
+          ? (
+            <div className="seg">
+              <button className={source === 'mic' ? 'on' : ''} onClick={() => setSource('mic')}>Mic</button>
+              <button className={source === 'replay' ? 'on' : ''} onClick={() => setSource('replay')}>Replay</button>
+            </div>
+          )
+          : null}
         {running
           ? <button className="btn" onClick={onStop}>Stop</button>
           : <button className="btn" onClick={onStart}>Start recording</button>}

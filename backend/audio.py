@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import collections
-import sys
+import os, sys
 import threading
 import time
 from dataclasses import dataclass
@@ -264,16 +264,74 @@ class AudioCapture:
             self.stop()
 
 
-def default_input_device() -> Optional[object]:
+# A connected pair of AirPods can be the system default and still hand back digital
+# silence, so a device is only usable once it has actually produced a signal.
+_PREFERRED = ("macbook pro microphone", "macbook air microphone", "built-in microph")
+_PROBE_SECONDS = 0.35
+_SILENT_PEAK = 1e-6
+
+
+def probe_input_device(index: int, seconds: float = _PROBE_SECONDS) -> float:
+    """Peak amplitude captured from one device. 0.0 means the device is dead."""
     try:
         import sounddevice as sd
-        devices = sd.query_devices()
-        for index, dev in enumerate(devices):
-            if dev.get("max_input_channels", 0) > 0:
-                return index
+        import numpy as np
+        rec = sd.rec(int(seconds * SAMPLE_RATE), samplerate=SAMPLE_RATE,
+                     channels=1, dtype="float32", device=index)
+        sd.wait()
+        return float(np.abs(rec).max())
     except Exception:
-        return None
+        return 0.0
+
+
+def list_input_devices() -> list[dict]:
+    try:
+        import sounddevice as sd
+        return [{"index": i, "name": d["name"]}
+                for i, d in enumerate(sd.query_devices())
+                if d.get("max_input_channels", 0) > 0]
+    except Exception:
+        return []
+
+
+def _match(devices: list[dict], wanted: str) -> Optional[int]:
+    if wanted.strip().isdigit():
+        idx = int(wanted.strip())
+        return idx if any(d["index"] == idx for d in devices) else None
+    low = wanted.strip().lower()
+    for d in devices:
+        if low in d["name"].lower():
+            return d["index"]
     return None
+
+
+def default_input_device() -> Optional[object]:
+    """The built-in mic if it works, else the first device that produces a signal."""
+    devices = list_input_devices()
+    if not devices:
+        return None
+
+    forced = os.environ.get("REDLINE_AUDIO_DEVICE", "").strip()
+    if forced:
+        idx = _match(devices, forced)
+        if idx is not None:
+            print(f"[audio] device forced by REDLINE_AUDIO_DEVICE: [{idx}]", file=sys.stderr)
+            return idx
+        print(f"[audio] REDLINE_AUDIO_DEVICE={forced!r} matched nothing", file=sys.stderr)
+
+    ordered = ([d for d in devices if any(p in d["name"].lower() for p in _PREFERRED)]
+               + [d for d in devices if not any(p in d["name"].lower() for p in _PREFERRED)])
+
+    for d in ordered:
+        peak = probe_input_device(d["index"])
+        if peak > _SILENT_PEAK:
+            print(f"[audio] using [{d['index']}] {d['name']!r} (peak {peak:.5f})", file=sys.stderr)
+            return d["index"]
+        print(f"[audio] skipping [{d['index']}] {d['name']!r} — silent", file=sys.stderr)
+
+    print("[audio] no device produced a signal; falling back to the first input",
+          file=sys.stderr)
+    return ordered[0]["index"] if ordered else None
 
 
 def audio_available() -> bool:

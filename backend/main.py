@@ -229,8 +229,9 @@ async def mic_loop(session: SessionState) -> None:
         TRANSCRIBER = Transcriber(ENV_FACTS)
     transcriber = TRANSCRIBER
 
-    fallback = default_input_device()
-    candidates = [ENV_FACTS.get("audio_device"), fallback]
+    # The probed picker wins: the device recorded in .redline_env.json was whatever
+    # happened to be the system default at install time, which may now be silent.
+    candidates = [default_input_device(), ENV_FACTS.get("audio_device")]
     capture = None
     for device in candidates:
         if device is None and capture is not None:
