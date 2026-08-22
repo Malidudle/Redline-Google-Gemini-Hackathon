@@ -369,7 +369,9 @@ def find_cue_phrases(text: str) -> list[RedactionSpan]:
 # Entry point
 # --------------------------------------------------------------------------
 
-_DETECTORS = (
+# Identifiers are matched, not judged: an NHS number either passes Modulus 11 or it
+# does not. These must never depend on a model being up, so they always run.
+_IDENTIFIER_DETECTORS = (
     find_nhs_numbers,
     find_nino,
     find_postcodes,
@@ -377,10 +379,44 @@ _DETECTORS = (
     find_phones,
     find_bank_details,
     find_dates_of_birth,
+)
+
+# These approximate judgement — is this phrase a person, a supplier, unformed policy?
+# That is Gemma's job. They run only when the model could not answer, so that the
+# demo degrades to regex instead of dying, without pre-empting the model.
+_JUDGEMENT_DETECTORS = (
     find_titled_names,
     find_organisations,
     find_cue_phrases,
 )
+
+_DETECTORS = _IDENTIFIER_DETECTORS + _JUDGEMENT_DETECTORS
+
+
+def _run(detectors, text: str) -> list[RedactionSpan]:
+    spans: list[RedactionSpan] = []
+    for detector in detectors:
+        spans.extend(detector(text))
+    return spans
+
+
+def find_identifier_spans(text: str, money_threshold: float | None = None) -> list[RedactionSpan]:
+    """Identifiers and money. Always safe to trust, never needs the model."""
+    if not text:
+        return []
+    spans = _run(_IDENTIFIER_DETECTORS, text)
+    spans.extend(find_money(text, money_threshold))
+    spans.sort(key=lambda s: (s.start, -s.end))
+    return spans
+
+
+def find_judgement_spans(text: str) -> list[RedactionSpan]:
+    """The regex fallback for what Gemma normally decides."""
+    if not text:
+        return []
+    spans = _run(_JUDGEMENT_DETECTORS, text)
+    spans.sort(key=lambda s: (s.start, -s.end))
+    return spans
 
 
 def find_rule_spans(text: str, money_threshold: float | None = None) -> list[RedactionSpan]:
