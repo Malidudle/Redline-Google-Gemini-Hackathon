@@ -207,8 +207,10 @@ def _entry(item: Any, fields: tuple[str, ...]) -> dict | None:
 
 
 def _normalise(result: dict) -> dict:
-    """Keep only the four expected keys, each as a list, whatever the model returned."""
+    """Keep only the expected keys, whatever else the model returned."""
     out = _empty_minutes()
+    out["summary"] = _clean(result.get("summary")) or ""
+    out["topics"] = [t for t in (_clean(a) for a in result.get("topics") or []) if t]
     out["attendees"] = [t for t in (_clean(a) for a in result.get("attendees") or []) if t]
     out["unresolved"] = [t for t in (_clean(u) for u in result.get("unresolved") or []) if t]
     for key, fields in (("decisions", ("decided_by",)), ("actions", ("owner", "due_date"))):
