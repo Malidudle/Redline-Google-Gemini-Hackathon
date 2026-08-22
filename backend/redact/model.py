@@ -37,7 +37,10 @@ OLLAMA_URL = "http://localhost:11434"
 GENERATE_URL = f"{OLLAMA_URL}/api/generate"
 DEFAULT_MODEL_TAG = "gemma3:4b"
 FUZZY_MIN_RATIO = 0.85
-CONTEXT_SEGMENTS = 2
+# One, not two. Measured on an unseen transcript: two prior segments cost three
+# redactions, including a supplier name it caught reliably with one or none. The
+# extra context pulls attention off the segment being annotated.
+CONTEXT_SEGMENTS = 1
 
 try:
     SCHEMA: dict[str, Any] = json.loads(SCHEMA_PATH.read_text())
@@ -194,6 +197,26 @@ SEGMENT: "Trading Standards have an open investigation into the director, and th
 SEGMENT: "Has anyone been out to the property? What's the postcode, I want it in the minutes."
 {"redactions":[]}
 Nothing here: "postcode" names a category and no postcode is actually spoken.
+
+### Example C-date
+SEGMENT: "Good morning everyone, thanks for joining at short notice. This is the joint procurement and safeguarding review for the 22nd of August."
+{"redactions":[]}
+Nothing here. "the 22nd of August" is the date of the meeting, not anyone's date of
+birth. The name of the review is not exempt either. Routine meeting furniture is
+never withheld.
+
+### Example C-dob
+SEGMENT: "Her date of birth is the 3rd of March 1974 and it's on the referral form."
+{"redactions":[{"text":"the 3rd of March 1974","exemption":"s.40(2)"}]}
+Contrast with the previous example. A date belonging to a PERSON is personal data and
+is withheld. A date belonging to the MEETING is not. Ask whose date it is.
+
+### Example C-name
+SEGMENT: "Before we start the agenda proper, I want to welcome Dr Sarah Whitfield, our safeguarding lead, who has come in to brief us on one live case."
+{"redactions":[{"text":"Dr Sarah Whitfield","exemption":"s.40(2)"}]}
+Routine meeting talk does NOT make a person's name safe. The welcome is furniture and
+is not withheld, but the named individual inside it always is. Withhold the name even
+when the sentence around it is procedural.
 
 ### Example C1
 SEGMENT: "Can someone chase the NHS number for me, it wasn't on the referral form."
