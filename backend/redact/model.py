@@ -169,9 +169,43 @@ Rules you must obey:
    - job titles that stand alone and are not attached to a named individual
      ("the committee", "the evaluation panel", "officers")
    - ordinary courtesies and procedural talk ("thanks for joining", "moving to item 4")
+   - the bare word naming a category, with no value after it. Withhold "M14 5TQ",
+     never the word "postcode". Withhold the digits, never the words "NHS number"
+     standing alone.
+8. Return the WHOLE identifier, including any trailing letter or digit. A National
+   Insurance number ends in a letter A to D and that letter is part of it. Half an
+   identifier behind a black bar still discloses the other half.
+9. A named public body is not automatically exempt. When the police, Trading Standards
+   or a regulator have an ongoing investigation, what must be withheld is the FACT of
+   the investigation and anything that would prejudice it -> s.31, not merely the name
+   of the body.
 """
 
 _EXAMPLES = """
+### Example A
+SEGMENT: "He has COPD and the respiratory nurse has written to us twice about the damp."
+{"redactions":[{"text":"He has COPD","exemption":"s.38"},{"text":"the respiratory nurse has written to us twice","exemption":"s.38"}]}
+
+### Example B
+SEGMENT: "Trading Standards have an open investigation into the director, and the police asked us not to disclose anything before they interview him."
+{"redactions":[{"text":"an open investigation into the director","exemption":"s.31"},{"text":"not to disclose anything before they interview him","exemption":"s.31"}]}
+
+### Example C0
+SEGMENT: "Has anyone been out to the property? What's the postcode, I want it in the minutes."
+{"redactions":[]}
+Nothing here: "postcode" names a category and no postcode is actually spoken.
+
+### Example C1
+SEGMENT: "Can someone chase the NHS number for me, it wasn't on the referral form."
+{"redactions":[]}
+Nothing here either. "NHS number" with no digits after it discloses nothing. Withhold
+the value, never the label. The same goes for "his National Insurance number", "the
+sort code" and "her date of birth" when no actual value follows.
+
+### Example C
+SEGMENT: "His National Insurance number is JT six one nine four two seven C, and the postcode is M14 5TQ."
+{"redactions":[{"text":"JT six one nine four two seven C","exemption":"s.40(2)"},{"text":"M14 5TQ","exemption":"s.40(2)"}]}
+
 ### Example 1
 CONTEXT:
 (none)
